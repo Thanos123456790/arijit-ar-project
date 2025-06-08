@@ -27,6 +27,8 @@ const TopNavbar = () => {
   };
 
   const handleLogout = () => {
+    sessionStorage.removeItem("currentUser");
+    sessionStorage.removeItem("token");
     handlePopoverClose();
     navigate("/");
   };

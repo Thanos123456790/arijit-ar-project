@@ -4,16 +4,9 @@ import {
   Route,
 } from 'react-router-dom';
 import {
-  AppBar,
   Toolbar,
-  IconButton,
-  Popover,
-  Typography,
-  Box,
-  Button,
   Grid,
 } from '@mui/material';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 import Login from './pages/Login/Login.jsx';
 import CreateTest from './pages/CreateTest/CreateTest.jsx';

@@ -3,7 +3,9 @@
   max-height:83vh;
   font-family: 'Segoe UI', sans-serif;
 }
-
+p{
+  color: black;
+}
 .admin-header {
   display: flex;
   align-items: center;
@@ -15,6 +17,10 @@
   display: flex;
   gap: 20px;
   margin-bottom: 2rem;
+}
+
+h1,h2,h3,tr,td{
+  color: black;
 }
 
 .kpi-card {

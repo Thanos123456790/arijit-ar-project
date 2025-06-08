@@ -9,7 +9,7 @@ import UpdateTest from "../UpdateTest/UpdateTest";
 import Chatbot from "../Chatbot/Chatbot";
 import { useNavigate } from "react-router-dom";
 
-const API = "http://localhost:5000/api/tests/teacher-tests";
+const API = "http://localhost:5000/api/tests";
 
 const TeacherHomePage = () => {
   const [tests, setTests] = useState([]);
@@ -27,7 +27,7 @@ const TeacherHomePage = () => {
   
   useEffect(() => {
     const fetchTests = async () => {
-      const res  = await fetch(`${API}?teacherId=${currentUser._id}`);
+      const res  = await fetch(`http://localhost:5000/api/tests/teacher-tests?teacherId=${currentUser._id}`);
       const data = await res.json();
       setTests(data);
     };
@@ -83,9 +83,6 @@ const TeacherHomePage = () => {
     setEditingTest(null);
   };
 
-  /* ────────────────────────────
-     Delete test
-  ─────────────────────────────*/
   const handleDeleteClick = (t) => {
     setTestToDelete(t);
     setShowDeletePopup(true);
@@ -101,10 +98,7 @@ const TeacherHomePage = () => {
     setTestToDelete(null);
   };
 
-  /* ────────────────────────────
-     Misc helpers
-  ─────────────────────────────*/
-  const handleViewResults     = () => navigate("/test-results-teacher");
+  const handleViewResults     = (id) => navigate(`/test-results-teacher?testId=${id}`);
   const handleMannualEvaluation     = (id) => navigate(`/manual-evaluation?testId=${id}`);
   const handleAIEvaluation          = (id) => navigate(`/ai-evaluation?testId=${id}`);
   const navigateToCreateTest  = ()  => navigate("/create-test");
@@ -171,8 +165,8 @@ const TeacherHomePage = () => {
         </div>
 
         <div className="tests-container">
-          {tests.map((test) => (
-            <div key={test.id} className="test-card">
+          {tests.map((test,index) => (
+            <div key={index} className="test-card">
               <h3>
                 <FaBook className="icon green" /> {test.name}
               </h3>
@@ -198,7 +192,7 @@ const TeacherHomePage = () => {
                   style={{ background: "#28a745" }}
                   className="btn-success"
                   title="Assign"
-                  onClick={() => handleAssignTest(test.id)}
+                  onClick={() => handleAssignTest(test._id)}
                 >
                   Assign{" "}
                 </button>
@@ -220,7 +214,7 @@ const TeacherHomePage = () => {
                 <button
                   title="View Results"
                   className="btn-info"
-                  onClick={() => handleViewResults(test.id)}
+                  onClick={() => handleViewResults(test._id)}
                 >
                   <FaChartLine />
                 </button>
@@ -229,7 +223,7 @@ const TeacherHomePage = () => {
                   <button
                     title="Evaluate"
                     className="btn-secondary"
-                    onClick={() => handleMannualEvaluation(test.id)}
+                    onClick={() => handleMannualEvaluation(test._id)}
                   >
                     <FaClipboardCheck />
                   </button>
@@ -238,7 +232,7 @@ const TeacherHomePage = () => {
                   <button
                     title="Evaluate"
                     className="btn-secondary"
-                    onClick={() => handleAIEvaluation(test.id)}
+                    onClick={() => handleAIEvaluation(test._id)}
                   >
                     <FaBrain />
                   </button>

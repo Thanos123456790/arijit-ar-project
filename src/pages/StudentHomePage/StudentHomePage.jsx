@@ -17,12 +17,13 @@ const StudentHomePage = () => {
   const [commentText, setCommentText] = useState("");
   const navigate = useNavigate();
 
-  const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+  const currentUser = JSON.parse(sessionStorage.getItem("currentUser"));
 
   useEffect(() => {
     async function fetchTests() {
       const res = await fetch("http://localhost:5000/api/tests");
       const data = await res.json();
+      console.log(data);
       setTests(data);
     }
     fetchTests();
@@ -34,6 +35,7 @@ const StudentHomePage = () => {
   const totalAttempted = tests.filter((t) => t.studentsAttempted > 0).length;
 
   const openComment = (testId) => {
+    console.log(testId);
     setCommentPopup({ visible: true, testId });
     setCommentText("");
   };
@@ -46,7 +48,8 @@ const StudentHomePage = () => {
       userName: currentUser.name,
       commentText,
     };
-    const res = await fetch("http://localhost:5000/api/tests/comment", {
+    console.log(commentText);
+    const res = await fetch("http://localhost:5000/api/comments/comment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -80,19 +83,19 @@ const StudentHomePage = () => {
       <section className="tests-section">
         <h3>Assigned Tests</h3>
         <div className="tests-container">
-          {tests.map((t) => (
-            <div key={t.id} className="test-card">
+          {tests.map((t,index) => (
+            <div key={index} className="test-card">
               <h3><FaBook className="icon green"/> {t.name}</h3>
               <p><FaClock className="icon yellow"/> Duration: {t.duration}</p>
               <p>Total Score: {t.totalScore}</p>
               <div className="card-actions">
-                <button className="btn-info" onClick={() => handleWriteTest(t.id)}>
+                <button className="btn-info" onClick={() => handleWriteTest(t._id)}>
                   Write Test <FaEdit/>
                 </button>
-                <button className="btn-secondary" onClick={() => handleViewResults(t.id)}>
+                <button className="btn-secondary" onClick={() => handleViewResults(t._id)}>
                   Results <FaEye/>
                 </button>
-                <button className="btn-warning" onClick={() => openComment(t.id)}>
+                <button className="btn-warning" onClick={() => openComment(t._id)}>
                   Comment <FaCommentDots/>
                 </button>
               </div>

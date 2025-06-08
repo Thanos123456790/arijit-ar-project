@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FaTrashAlt,
   FaPlusCircle,
@@ -12,11 +12,15 @@ import * as XLSX from "xlsx";
 import "./CreateTest.css";
 import { useNavigate } from "react-router-dom";
 
-
-const TEACHER_DATA = sessionStorage.getItem("currentUser");
-const TEACHER_ID = TEACHER_DATA._id | "635f8b2c9d1e4f1a2c8b4567";
-
 function CreateTest() {
+  const [data, setData] = useState({});
+  useEffect(() => {
+    const user = sessionStorage.getItem("currentUser");
+    setData(user ? JSON.parse(user) : {});
+  }, []);
+  const TEACHER_ID = data._id;
+  console.log(TEACHER_ID);
+
   const [testName, setTestName] = useState("");
   const [evaluationType, setEvaluationType] = useState("Automated");
   const [testDuration, setTestDuration] = useState("");

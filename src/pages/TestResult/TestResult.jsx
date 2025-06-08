@@ -1,90 +1,100 @@
-// Enhanced TestResults Component
 import React, { useState, useEffect } from "react";
-import { FaDownload, FaChartBar, FaBackward } from "react-icons/fa";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
+  FaDownload, FaChartBar, FaBackward
+} from "react-icons/fa";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
+  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
 } from "recharts";
 import "./TestResults.css";
-import { useLocation } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+
+const API = "http://localhost:5000/api";
 
 function TestResults() {
-  const [showAnswers, setShowAnswers] = useState(false);
-  const [testResult, setTestResult] = useState(null); // initially null
-
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const testId = queryParams.get("testId");
   const navigate = useNavigate();
+  const { search } = useLocation();
+  const testId = new URLSearchParams(search).get("testId");
 
-  const [studentInfo] = useState(
-    JSON.parse(sessionStorage.getItem("currentUser"))
-  );
+  const studentInfo = JSON.parse(sessionStorage.getItem("currentUser"));
+
+  const [testResult, setTestResult] = useState(null);
+  const [showAnswers, setShowAnswers] = useState(false);
+  const [isResultAvailable, setIsResultAvailable] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedTestdata = JSON.parse(sessionStorage.getItem("submittedTests"));
-    if (savedTestdata) {
-      const test = savedTestdata.find((t) => t.testId === testId); // NOTE: use 'testId', not 'id'
-      if (test) {
-        setTestResult(test);
+    async function fetchResult() {
+      try {
+        const res = await fetch(
+          `${API}/submissions/student?testId=${testId}&studentId=${studentInfo._id}`
+        );
+        const data = await res.json();
+
+        if (!res.ok || !data || data.length === 0 || !data.evaluatedQuestions) {
+          setIsResultAvailable(false);
+        } else {
+          setTestResult(data);
+          setIsResultAvailable(true);
+        }
+      } catch (error) {
+        setIsResultAvailable(false);
+        console.log(error);
+      } finally {
+        setLoading(false);
       }
     }
-  }, [testId]);
 
-  if (!testResult || !testResult.questions) {
-    return <div className="loading">Loading test results...</div>;
+    if (testId && studentInfo) {
+      fetchResult();
+    } else {
+      setLoading(false);
+      setIsResultAvailable(false);
+    }
+  }, [testId, studentInfo]);
+
+  if (loading) return <div className="loading">Loading test results…</div>;
+
+  if (!isResultAvailable) {
+    return (
+      <div style={{marginLeft:"70px",marginRight:"70px"}}>
+        <p style={{ textAlign: "center", color: "red", fontWeight: "bold" }}>
+          Please attempt the exam. No results available.
+        </p>
+        <button onClick={() => navigate("/student-home")}><FaBackward /> Back</button>
+      </div>
+    );
   }
 
-  const performanceData = testResult.questions.map((q, index) => ({
-    name: `Q${index + 1}`,
+  const perfData = testResult.evaluatedQuestions.map((q, i) => ({
+    name: `Q${i + 1}`,
     Total: q.score,
     Obtained: q.obtained,
   }));
 
   const pieData = [
-    { name: "Correct", value: testResult.obtainedScore || 0 },
-    {
-      name: "Incorrect",
-      value: (testResult.totalScore || 0) - (testResult.obtainedScore || 0),
-    },
+    { name: "Correct", value: testResult.obtainedScore },
+    { name: "Incorrect", value: testResult.totalScore - testResult.obtainedScore },
   ];
-
   const COLORS = ["#28a745", "#dc3545"];
 
-  const handleDownloadReport = () => {
-    const reportContent = `
-Test Name: ${testResult.testName}
-Student Name: ${studentInfo.name}
-Roll Number: ${studentInfo.rollNumber}
-Class: ${studentInfo.class}
-Total Score: ${testResult.totalScore}
+  const downloadReport = () => {
+    const txt = `
+Test Name     : ${testResult.testId}
+Student Name  : ${studentInfo.name}
+Roll Number   : ${studentInfo.rollNumber || "—"}
+Total Score   : ${testResult.totalScore}
 Obtained Score: ${testResult.obtainedScore}
-Percentage: ${testResult.percentage}%
-    `;
-    const blob = new Blob([reportContent], {
-      type: "text/plain;charset=utf-8",
+Percentage    : ${testResult.percentage}%
+`;
+    const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+    const link = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(blob),
+      download: "test_result.txt",
     });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "test_result.txt";
     link.click();
   };
 
-  const handleBack = () => {
-    navigate("/student-home");
-  };
   return (
     <div className="test-results-page">
       <header className="results-header1">
@@ -94,49 +104,24 @@ Percentage: ${testResult.percentage}%
       </header>
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: "20px" }}>
-        <button
-          style={{ width: "unset", padding: 8, fontSize: 12, marginBottom: 0 }}
-          onClick={handleDownloadReport}
-        >
+        <button style={{ width: "unset", padding: 8, fontSize: 12 }} onClick={downloadReport}>
           <FaDownload /> Download
         </button>
-        <button
-          style={{ width: "unset", padding: 8, fontSize: 12, marginBottom: 0 }}
-          onClick={handleBack}
-        >
-          <FaBackward /> Back
-        </button>
+        <button onClick={() => navigate("/student-home")}><FaBackward /> Back</button>
       </div>
 
       <div className="student-info">
-        <p>
-          <strong>Name:</strong> {studentInfo.name}
-        </p>
-        <p>
-          <strong>Roll Number:</strong> {studentInfo.rollNumber}
-        </p>
-        <p>
-          <strong>Branch:</strong> {studentInfo.branch}
-        </p>
-        <p>
-          <strong>Semester:</strong> {studentInfo.semester}
-        </p>
+        <p><strong>Name:</strong> {studentInfo.name}</p>
+        <p><strong>Roll Number:</strong> {studentInfo.rollNumber}</p>
+        <p><strong>Branch:</strong> {studentInfo.branch}</p>
+        <p><strong>Semester:</strong> {studentInfo.semester}</p>
       </div>
 
       <div className="results-summary">
-        <p>
-          <strong>Total Score:</strong> {testResult.totalScore}
-        </p>
-        <p>
-          <strong>Obtained Score:</strong> {testResult.obtainedScore}
-        </p>
-        <p>
-          <strong>Percentage:</strong> {testResult.percentage}%
-        </p>
-        <button
-          className="toggle-answers-btn"
-          onClick={() => setShowAnswers(!showAnswers)}
-        >
+        <p><strong>Total Score:</strong> {testResult.totalScore}</p>
+        <p><strong>Obtained Score:</strong> {testResult.obtainedScore}</p>
+        <p><strong>Percentage:</strong> {testResult.percentage}%</p>
+        <button className="toggle-answers-btn" onClick={() => setShowAnswers(!showAnswers)}>
           {showAnswers ? "Hide" : "Show"} Student Answers
         </button>
       </div>
@@ -146,35 +131,21 @@ Percentage: ${testResult.percentage}%
           <h3>Student Answers</h3>
           {testResult.questions.map((q, i) => (
             <div key={i} className="answer-block">
-              <p>
-                <strong>
-                  Q{i + 1}: {q.question}
-                </strong>
-              </p>
-              <p>
-                <strong>Student Answer:</strong> {q.studentAnswer}
-              </p>
-              <p>
-                <strong>Correct Answer:</strong> {q.correctAnswer}
-              </p>
-
-              <p>
-                <strong>Score:</strong> {q.obtained}/{q.score}
-              </p>
+              <p><strong>Q{i + 1}:</strong> {q.question}</p>
+              <p><strong>Student Answer:</strong> {q.studentAnswer}</p>
+              <p><strong>Correct Answer:</strong> {q.correctAnswer}</p>
+              <p><strong>Score:</strong> {q.obtained}/{q.score}</p>
             </div>
           ))}
         </div>
       )}
 
-      <h3 style={{ color: "black" }}>
-        {" "}
-        Result Analytics: {testResult.testName}
-      </h3>
+      <h3 style={{ color: "black" }}>Result Analytics: {testResult.testName}</h3>
 
       <div className="graphs-section">
         <div className="graph-container">
           <h3>Performance per Question</h3>
-          <BarChart width={500} height={300} data={performanceData}>
+          <BarChart width={500} height={300} data={perfData}>
             <XAxis dataKey="name" />
             <YAxis />
             <Tooltip />
@@ -187,15 +158,7 @@ Percentage: ${testResult.percentage}%
         <div className="graph-container">
           <h3>Overall Performance</h3>
           <PieChart width={300} height={300}>
-            <Pie
-              data={pieData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              outerRadius={100}
-              label
-            >
+            <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
               {pieData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index]} />
               ))}
@@ -206,7 +169,7 @@ Percentage: ${testResult.percentage}%
 
         <div className="graph-container">
           <h3>Line Chart of Scores</h3>
-          <LineChart width={500} height={300} data={performanceData}>
+          <LineChart width={500} height={300} data={perfData}>
             <XAxis dataKey="name" />
             <YAxis />
             <Tooltip />
@@ -218,21 +181,15 @@ Percentage: ${testResult.percentage}%
 
         <div className="graph-container">
           <h3>Area Chart Insights</h3>
-          <AreaChart width={500} height={300} data={performanceData}>
+          <AreaChart width={500} height={300} data={perfData}>
             <XAxis dataKey="name" />
             <YAxis />
             <Tooltip />
             <Legend />
-            <Area
-              type="monotone"
-              dataKey="Obtained"
-              stroke="#82ca9d"
-              fill="#82ca9d"
-            />
+            <Area type="monotone" dataKey="Obtained" stroke="#82ca9d" fill="#82ca9d" />
           </AreaChart>
         </div>
       </div>
-
       <br />
       <br />
     </div>
