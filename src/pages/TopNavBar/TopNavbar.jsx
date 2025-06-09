@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import {
   AppBar,
   Toolbar,
@@ -12,41 +11,54 @@ import {
 } from "@mui/material";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import MailIcon from "@mui/icons-material/Mail";
+import CloseIcon from "@mui/icons-material/Close";
+import { useLocation, useNavigate } from "react-router-dom";
 
-const TopNavbar = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [anchorEl, setAnchorEl] = useState(null);
+const CHAT_API = `${import.meta.env.VITE_API_URL}/chats`;
 
-  const handleAvatarClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handlePopoverClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleLogout = () => {
-    sessionStorage.removeItem("currentUser");
-    sessionStorage.removeItem("token");
-    handlePopoverClose();
-    navigate("/");
-  };
-  const handleMessageclick = () => {
-    navigate("/ems-integrated-chat");
-  };
-
-  const ManageUserprofile = () => {
-    handlePopoverClose();
-    navigate("/profile");
-  };
-
+export default function TopNavbar() {
+  const location   = useLocation();
+  const navigate   = useNavigate();
   const currentUser = JSON.parse(sessionStorage.getItem("currentUser"));
 
-  const open = Boolean(anchorEl);
-  const id = open ? "user-popover" : undefined;
+  /* popover */
+  const [anchorEl, setAnchorEl] = useState(null);
+  const open  = Boolean(anchorEl);
+  const popId = open ? "user-pop" : undefined;
+  const logout = () => {
+    sessionStorage.clear();              // token + user
+    setAnchorEl(null);
+    navigate("/");
+  };
 
+  /* ─── unread badge state ─── */
+  const [unread, setUnread] = useState(0);
+  const lastSeenKey = `chatLastSeen_${currentUser?._id}`;
+
+  /* fetch unread count every 5 s */
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchUnread = async () => {
+      const since = localStorage.getItem(lastSeenKey) || "";
+      const res   = await fetch(`${CHAT_API}?since=${since}`);
+      const data  = await res.json();
+      const unseen = data.filter(m => m.senderId !== currentUser._id).length;
+      setUnread(unseen);
+    };
+    fetchUnread();
+    const id = setInterval(fetchUnread, 5000);
+    return () => clearInterval(id);
+  }, [currentUser, lastSeenKey]);
+
+  /* hide on landing page */
   if (location.pathname === "/") return null;
+
+  /* open chat */
+  const openChat = () => {
+    localStorage.setItem(lastSeenKey, new Date().toISOString()); // reset counter
+    setUnread(0);
+    navigate("/ems-integrated-chat");
+  };
 
   return (
     <>
@@ -84,18 +96,18 @@ const TopNavbar = () => {
             }}
           >
             <IconButton
-              onClick={handleMessageclick}
+              onClick={openChat}
               sx={{ width: "50px" }}
               size="large"
               color="inherit"
             >
-              <Badge badgeContent={0} color="error">
+              <Badge badgeContent={unread} color="error">
                 <MailIcon />
               </Badge>
             </IconButton>
             <IconButton
               sx={{ width: "50px" }}
-              onClick={handleAvatarClick}
+              onClick={e=>setAnchorEl(e.currentTarget)}
               color="inherit"
             >
               <AccountCircleIcon sx={{ fontSize: 32 }} />
@@ -105,10 +117,10 @@ const TopNavbar = () => {
       </AppBar>
 
       <Popover
-        id={id}
+        id={popId}
         open={open}
         anchorEl={anchorEl}
-        onClose={handlePopoverClose}
+        onClose={()=>setAnchorEl(null)}
         anchorOrigin={{
           vertical: "bottom",
           horizontal: "right",
@@ -133,8 +145,8 @@ const TopNavbar = () => {
             variant="contained"
             color="secondary"
             fullWidth
-            startIcon={<AccountCircleIcon />}
-            onClick={handleLogout}
+            startIcon={<CloseIcon />}
+            onClick={logout}
           >
             Logout
           </Button>
@@ -145,7 +157,7 @@ const TopNavbar = () => {
             color="secondary"
             fullWidth
             startIcon={<AccountCircleIcon />}
-            onClick={ManageUserprofile}
+            onClick={()=>{ setAnchorEl(null); navigate("/profile"); }}
           >
             Manage Profile
           </Button>
@@ -154,5 +166,3 @@ const TopNavbar = () => {
     </>
   );
 };
-
-export default TopNavbar;

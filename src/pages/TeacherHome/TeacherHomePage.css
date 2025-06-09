@@ -337,3 +337,44 @@ body {
   max-height: 90vh;
   overflow-y: auto;
 }
+
+
+.workflow-toggle {
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.toggle-label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.upload-section,
+.manual-section {
+  border-radius: 8px;
+  background-color: #eef5f2;
+  color: black;
+  border: 1px dashed black;
+  display: flex;
+}
+.checkbox-label {
+  display: flex;
+}
+
+.secondary-btn {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.secondary-btn:hover {
+  background-color: #5a6268;
+}

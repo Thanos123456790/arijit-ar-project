@@ -1,6 +1,7 @@
 import { useState } from "react";
 import "./Login.css";
 import { useNavigate } from "react-router-dom";
+const API = `${import.meta.env.VITE_API_URL}`;
 
 function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -22,6 +23,7 @@ function Login() {
   const validateEmail = (email) => /\S+@\S+\.\S+/.test(email);
   const validatePhone = (phone) => phone.length === 10 && !isNaN(phone);
 
+
   const handleLogin = async () => {
     if (!email || !password) {
       alert("Email and password are required.");
@@ -34,7 +36,7 @@ function Login() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const res = await fetch(`${API}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -128,7 +130,7 @@ function Login() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/auth/register", {
+      const res = await fetch(`${API}/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

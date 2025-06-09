@@ -9,7 +9,7 @@ import {
 import "./TestResultTeacher.css";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const API = "http://localhost:5000/api";
+const API = `${import.meta.env.VITE_API_URL}`;
 const COLORS = ["#28a745", "#dc3545", "#ffc107", "#17a2b8"];
 
 export default function TeacherTestResults() {

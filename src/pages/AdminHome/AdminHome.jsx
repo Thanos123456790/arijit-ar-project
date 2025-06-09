@@ -3,7 +3,8 @@ import { FaUsers, FaChalkboardTeacher, FaUserGraduate, FaPlus, FaTrash } from "r
 import "./AdminHome.css";
 import Chatbot from "../Chatbot/Chatbot";
 
-const API = "http://localhost:5000/api/users";
+const API = `${import.meta.env.VITE_API_URL}/users`;
+console.log(API);
 
 export default function AdminHomePage() {
   const [users, setUsers] = useState([]);

@@ -9,7 +9,7 @@ import {
 import "./TestResults.css";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const API = "http://localhost:5000/api";
+const API = `${import.meta.env.VITE_API_URL}`;
 
 function TestResults() {
   const navigate = useNavigate();

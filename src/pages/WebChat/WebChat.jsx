@@ -1,142 +1,117 @@
-import React, { useState, useEffect, useRef } from 'react';
-import './WebChat.css';
-import { FaPaperPlane } from 'react-icons/fa';
-import CloseIcon from '@mui/icons-material/Close';
-import { IconButton } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef } from "react";
+import { FaPaperPlane } from "react-icons/fa";
+import CloseIcon from "@mui/icons-material/Close";
+import { IconButton } from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import "./WebChat.css";
+
+const API = `${import.meta.env.VITE_API_URL}/chats`;
 
 const WebChat = () => {
-  const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState( JSON.parse(sessionStorage.getItem('chatMessages')) ||[]);
-  const [department, setDepartment] = useState('');
-  const [semester, setSemester] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [department, setDept] = useState("");
+  const [semester, setSem] = useState("");
+  const [search, setSearch] = useState("");
+  const [currentUser] = useState(JSON.parse(sessionStorage.getItem("currentUser")));
   const chatEndRef = useRef(null);
+  const navigate = useNavigate();
 
-  // Load initial data from sessionStorage
+  /* ─── Fetch msgs every 5s (or on filter change) ─── */
+  const fetchMessages = async () => {
+    const params = new URLSearchParams();
+    if (department) params.append("department", department);
+    if (semester) params.append("semester", semester);
+    const res = await fetch(`${API}?${params.toString()}`);
+    const data = await res.json();
+    setMessages(data);
+  };
+
+  useEffect(() => { fetchMessages(); }, [department, semester]);
   useEffect(() => {
-    const user = JSON.parse(sessionStorage.getItem('currentUser'));
-    setCurrentUser(user);
+  let controller = new AbortController();
+  let timeout;
 
-    const storedMessages = JSON.parse(sessionStorage.getItem('chatMessages')) || [];
-    setMessages(storedMessages);
+  const fetchAndSchedule = async () => {
+    try {
+      await fetchMessages();
+      timeout = setTimeout(fetchAndSchedule, 3000); // 3 seconds
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+    }
+  };
 
-    setDepartment(sessionStorage.getItem('chatDepartment') || '');
-    setSemester(sessionStorage.getItem('chatSemester') || '');
-    setSearchTerm(sessionStorage.getItem('chatSearchTerm') || '');
-    setMessage(sessionStorage.getItem('chatTyping') || '');
-  }, []);
+  fetchAndSchedule();
 
-  // Persist messages and scroll
+  return () => {
+    controller.abort();
+    clearTimeout(timeout);
+  };
+}, [department, semester]);
+
+
   useEffect(() => {
-    sessionStorage.setItem('chatMessages', JSON.stringify(messages));
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Persist UI states
-  useEffect(() => {
-    sessionStorage.setItem('chatDepartment', department);
-  }, [department]);
-
-  useEffect(() => {
-    sessionStorage.setItem('chatSemester', semester);
-  }, [semester]);
-
-  useEffect(() => {
-    sessionStorage.setItem('chatSearchTerm', searchTerm);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    sessionStorage.setItem('chatTyping', message);
-  }, [message]);
-
-  const navigate = useNavigate();
-  // Handle sending a message
-  const handleSend = () => {
+  /* ─── send message ─── */
+  const send = async () => {
     if (!message.trim()) return;
-
     if (!department || !semester) {
-      alert("Please select both Department and Semester before sending a message.");
-      return;
+      alert("Select department & semester first."); return;
     }
-
-    const newMsg = {
-      id: Date.now(),
+    const payload = {
       text: message,
-      sender: currentUser?.name || 'Unknown',
-      department,
-      semester,
-      role: currentUser?.role || 'student',
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      date: new Date().toDateString()
+      senderId: currentUser._id,
+      senderName: currentUser.name,
+      role: currentUser.role,
+      department, semester
     };
-
-    setMessages([...messages, newMsg]);
-    setMessage('');
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      setMessage("");
+      await fetchMessages();
+    }
   };
 
-  // Apply filters
+  /* ─── filtering (search) ─── */
   const filtered = messages.filter(
-    (msg) =>
-      (!department || msg.department === department) &&
-      (!semester || msg.semester === semester) &&
-      (msg.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        msg.sender.toLowerCase().includes(searchTerm.toLowerCase()))
+    (m) =>
+      m.text.toLowerCase().includes(search.toLowerCase()) ||
+      m.senderName.toLowerCase().includes(search.toLowerCase())
   );
-const CloseChatwindow = () => {
-    console.log(currentUser)
-    if(currentUser.role === 'student'){
-        navigate("/student-home");}
-        else{
-    navigate("/teacher-home");
 
-        }
-}
-  // Group messages by date
-  const renderMessagesByDate = () => {
-    const grouped = filtered.reduce((acc, msg) => {
-      acc[msg.date] = acc[msg.date] || [];
-      acc[msg.date].push(msg);
-      return acc;
-    }, {});
+  /* ─── group by date ─── */
+  const grouped = filtered.reduce((acc, m) => {
+    const date = new Date(m.createdAt).toDateString();
+    (acc[date] = acc[date] || []).push(m);
+    return acc;
+  }, {});
 
-    return Object.entries(grouped).map(([date, msgs]) => (
-      <div key={date}>
-        <div className="date-divider">{date}</div>
-        {msgs.map((msg) => (
-          <div
-            key={msg.id}
-            className={`message-card ${msg.role === 'teacher' ? 'teacher-msg' : 'student-msg'}`}
-          >
-            <div className="message-header">
-              <span className="sender">{msg.sender} ({msg.role})</span>
-              <span className="timestamp">{msg.time}</span>
-            </div>
-            <p className="message-text">{msg.text}</p>
-          </div>
-        ))}
-      </div>
-    ));
-  };
+  const closeChat = () =>
+    navigate(currentUser.role === "student" ? "/student-home" : "/teacher-home");
 
   return (
     <div className="chat-container">
       <header className="chat-header">
         <h3>💬 EMS Integrated Chat</h3>
-    
-<IconButton style={{width:"unset"}} onClick={CloseChatwindow}>
-  <CloseIcon sx={{ color: 'white' }} />
-</IconButton>      </header>
+
+        <IconButton style={{ width: "unset" }} onClick={closeChat}>
+          <CloseIcon sx={{ color: 'white' }} />
+        </IconButton>      </header>
 
       <div className="chat-controls">
-        <select value={department} onChange={(e) => setDepartment(e.target.value)}>
+        <select value={department} onChange={(e) => setDept(e.target.value)}>
           <option value="">All Departments</option>
           <option value="CS">CS</option>
           <option value="EC">EC</option>
           <option value="ME">ME</option>
         </select>
-        <select value={semester} onChange={(e) => setSemester(e.target.value)}>
+        <select value={semester} onChange={(e) => setSem(e.target.value)}>
           <option value="">All Semesters</option>
           <option value="1">1</option>
           <option value="2">2</option>
@@ -145,14 +120,27 @@ const CloseChatwindow = () => {
         <input
           type="text"
           placeholder="🔍 Search messages..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
       <main className="chat-messages">
-        {renderMessagesByDate()}
-        <div ref={chatEndRef} />
+        {Object.entries(grouped).map(([date,msgs])=>(
+          <div key={date}>
+            <div className="date-divider">{date}</div>
+            {msgs.map(m=>(
+              <div key={m._id} className={`message-card ${m.role==="teacher"?"teacher-msg":"student-msg"}`}>
+                <div className="message-header">
+                  <span className="sender">{m.senderName} ({m.role})</span>
+                  <span className="timestamp">{new Date(m.createdAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</span>
+                </div>
+                <p className="message-text">{m.text}</p>
+              </div>
+            ))}
+          </div>
+        ))}
+        <div ref={chatEndRef}/>
       </main>
 
       <footer className="chat-footer">
@@ -161,9 +149,9 @@ const CloseChatwindow = () => {
           placeholder="✏️ Type your message..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+          onKeyDown={e=>e.key==="Enter"&&send()}
         />
-        <button title="Send Message" onClick={handleSend}><FaPaperPlane /></button>
+        <button title="Send Message" onClick={send}><FaPaperPlane /></button>
       </footer>
     </div>
   );

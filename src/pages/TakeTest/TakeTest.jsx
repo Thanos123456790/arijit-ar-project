@@ -3,8 +3,8 @@ import { FaCamera, FaClock, FaFileAlt } from "react-icons/fa";
 import "./TakeTest.css";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const API = "http://localhost:5000/api/tests";
-const CHEATAPI = "http://localhost:5000/api/cheating";
+const API = `${import.meta.env.VITE_API_URL}/tests`;
+const CHEATAPI = `${import.meta.env.VITE_API_URL}/cheating`;
 
 function TakeTest() {
   const { search } = useLocation();

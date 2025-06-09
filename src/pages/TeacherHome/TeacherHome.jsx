@@ -8,26 +8,85 @@ import "./TeacherHomePage.css";
 import UpdateTest from "../UpdateTest/UpdateTest";
 import Chatbot from "../Chatbot/Chatbot";
 import { useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";          // ← NEW
+import { FaDownload } from "react-icons/fa";
 
-const API = "http://localhost:5000/api/tests";
+const API = `${import.meta.env.VITE_API_URL}/tests`;
 
 const TeacherHomePage = () => {
   const [tests, setTests] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState(null);
-  const [branchName, setBranchName] = useState("");
-  const [semester, setSemester] = useState("");
   const [editingTest, setEditingTest] = useState(null);
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [testToDelete, setTestToDelete] = useState(null);
 
   const navigate = useNavigate();
   const currentUser = JSON.parse(sessionStorage.getItem("currentUser"));
+
+  const [emails, setEmails] = useState([""]);
+  const [excelEmails, setExcel] = useState([]);
+  const [useExcel, setUseExcel] = useState(false);
+
+  const resetAssignPopup = () => {
+    setShowPopup(false);
+    setSelectedTestId(null);
+    setEmails([""]);
+    setExcel([]);
+    setUseExcel(false);
+  };
+
+  /* ----- add / change manual email fields -------------------- */
+  const addEmailField = () => setEmails(prev => [...prev, ""]);
+  const changeEmail = (idx, val) =>
+    setEmails(prev => prev.map((e, i) => i === idx ? val : e));
+
+  /* ----- Excel helpers -------------------------------------- */
+  const handleExcelUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const wb = XLSX.read(evt.target.result, { type: "binary" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const arr = XLSX.utils.sheet_to_json(ws);
+      const list = arr.map(r => (r.Email || r.email || "").trim()).filter(Boolean);
+      setExcel(list);
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const downloadSampleExcel = () => {
+    const ws = XLSX.utils.json_to_sheet([{ Email: "example@abc.com" }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Emails");
+    XLSX.writeFile(wb, "SampleEmails.xlsx");
+  };
+
+  /* ----- submit assignment ---------------------------------- */
+  const handlePopupSubmit = async () => {
+    const list = useExcel ? excelEmails : emails.map(e => e.trim()).filter(Boolean);
+
+    if (!list.length) return alert("No e-mails provided.");
+
+    const payload = { emails: list };
+    console.log("all emails" + JSON.stringify(payload));
+    const res = await fetch(`${API}/${selectedTestId}/assign`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      alert("Assigned!");
+      resetAssignPopup();
+    }
+  };
   // console.log(currentUser._id);
-  
+
   useEffect(() => {
     const fetchTests = async () => {
-      const res  = await fetch(`http://localhost:5000/api/tests/teacher-tests?teacherId=${currentUser._id}`);
+      const res = await fetch(`${API}/teacher-tests?teacherId=${currentUser._id}`);
       const data = await res.json();
       setTests(data);
     };
@@ -39,28 +98,6 @@ const TeacherHomePage = () => {
     setShowPopup(true);
   };
 
-  const handlePopupSubmit = async () => {
-    const payload = { branch: branchName, semester };
-    const res = await fetch(`${API}/${selectedTestId}/assign`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok) {
-      setTests(prev =>
-        prev.map(t =>
-          t._id === selectedTestId
-            ? { ...t, assignedTo: [...t.assignedTo, payload] }
-            : t
-        )
-      );
-      alert("Assigned successfully");
-    }
-    setShowPopup(false);
-    setBranchName("");
-    setSemester("");
-  };
-  
   const handleEditTest = (test) => {
     setEditingTest({
       ...test,
@@ -98,13 +135,13 @@ const TeacherHomePage = () => {
     setTestToDelete(null);
   };
 
-  const handleViewResults     = (id) => navigate(`/test-results-teacher?testId=${id}`);
-  const handleMannualEvaluation     = (id) => navigate(`/manual-evaluation?testId=${id}`);
-  const handleAIEvaluation          = (id) => navigate(`/ai-evaluation?testId=${id}`);
-  const navigateToCreateTest  = ()  => navigate("/create-test");
+  const handleViewResults = (id) => navigate(`/test-results-teacher?testId=${id}`);
+  const handleMannualEvaluation = (id) => navigate(`/manual-evaluation?testId=${id}`);
+  const handleAIEvaluation = (id) => navigate(`/ai-evaluation?testId=${id}`);
+  const navigateToCreateTest = () => navigate("/create-test");
 
   const totalAssignedClasses = tests.reduce(
-    (sum, t) => sum + t.assignedTo.length, 0
+    (sum, t) => sum + t.assignedTo?.length, 0
   );
   const totalStudents = tests.reduce(
     (sum, t) => sum + (t.studentsAttempted || 0), 0
@@ -127,20 +164,20 @@ const TeacherHomePage = () => {
       <section className="summary-cards">
         <div className="card stat-card">
           <h3>Total Tests</h3>
-          <p>{tests.length}</p>
+          <p>{tests?.length || 0}</p>
         </div>
         <div className="card stat-card">
           <h3>Classes Assigned</h3>
-          <p>{totalAssignedClasses}</p>
+          <p>{totalAssignedClasses || 0}</p>
         </div>
         <div className="card stat-card">
           <h3>Manual Evaluations</h3>
-          <p>{totalStudents}</p>
+          <p>{totalStudents || 0}</p>
         </div>
 
         <div className="card stat-card">
           <h3>Auto Evaluation</h3>
-          <p>{totalStudents}</p>
+          <p>{totalStudents || 0}</p>
         </div>
       </section>
 
@@ -165,7 +202,7 @@ const TeacherHomePage = () => {
         </div>
 
         <div className="tests-container">
-          {tests.map((test,index) => (
+          {tests.map((test, index) => (
             <div key={index} className="test-card">
               <h3>
                 <FaBook className="icon green" /> {test.name}
@@ -176,16 +213,8 @@ const TeacherHomePage = () => {
               </p>
               <p style={{ color: "black" }}>Total Score: {test.totalScore}</p>
               <p style={{ color: "black" }}>
-                Assigned To:{" "}
-                {test.assignedTo.length > 0
-                  ? test.assignedTo[0].branch +
-                  "," +
-                  test.assignedTo[0].semester
-                  : "None"}
-              </p>
-              <p style={{ color: "black" }}>
-                <FaUsers style={{ fontSize: "1.5rem" }} className="icon blue" />{" "}
-                Students Attempted: {test.studentsAttempted}
+                Assigned To:&nbsp;
+                {test.assignedTo?.length ? `${test.assignedTo?.length} Candidates` : "None"}
               </p>
               <div className="card-actions">
                 <button
@@ -247,33 +276,51 @@ const TeacherHomePage = () => {
       {showPopup && (
         <div className="popup-overlay">
           <div className="popup-content">
-            <h3 style={{ color: "black" }}>Assign Test to Class</h3>
-            <input
-              type="text"
-              value={branchName}
-              onChange={(e) => setBranchName(e.target.value)}
-              placeholder="Enter branch name"
-            />
-            <input
-              type="text"
-              value={semester}
-              onChange={(e) => setSemester(e.target.value)}
-              placeholder="Enter semester name"
-            />
-            <div className="popup-actions">
-              <button
-                className="btn-secondary"
-                onClick={() => setShowPopup(false)}
-              >
-                Cancel
-              </button>
-              <button className="btn-success" onClick={handlePopupSubmit}>
-                Submit
-              </button>
+            <h3 style={{ color: "black" }}>Assign Test – E-mail list</h3>
+            <div className="upload-section">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={useExcel}
+                  onChange={() => { setUseExcel(!useExcel); setExcel([]); }}
+                /> Upload via Excel
+              </label>
+            </div>
+
+            {useExcel ? (
+              /* -- Excel section ---------------------------------- */
+              <>
+                <input type="file" accept=".xlsx,.xls" onChange={handleExcelUpload} />
+                <button className="secondary-btn" style={{ marginTop: 6 }}
+                  onClick={downloadSampleExcel}>
+                  <FaDownload /> Sample
+                </button>
+                <p style={{ fontSize: 12, marginTop: 6 }}>
+                  {excelEmails.length ? `Loaded ${excelEmails.length} emails.` : "Expecting column 'Email'"}
+                </p>
+              </>
+            ) : (
+              /* -- Manual email inputs ----------------------------- */
+              <>
+                {emails.map((val, idx) => (
+                  <input key={idx}
+                    type="email" placeholder="user@example.com"
+                    value={val}
+                    onChange={e => changeEmail(idx, e.target.value)}
+                    style={{ marginBottom: 6 }} />
+                ))}
+                <button className="primary-btn" onClick={addEmailField}>
+                  + Add another
+                </button>
+              </>
+            )}
+
+            <div className="popup-actions" style={{ marginTop: 12 }}>
+              <button className="btn-secondary" onClick={resetAssignPopup}>Cancel</button>
+              <button className="btn-success" onClick={handlePopupSubmit}>Submit</button>
             </div>
           </div>
-        </div>
-      )}
+        </div>)}
 
       {/* Delete Confirmation Popup */}
       {showDeletePopup && (
@@ -285,7 +332,7 @@ const TeacherHomePage = () => {
               <strong>{testToDelete.name}</strong>?
             </p>
             <div className="popup-actions">
-              <button className="btn-secondary" onClick={()=>setShowDeletePopup(false)}>
+              <button className="btn-secondary" onClick={() => setShowDeletePopup(false)}>
                 Cancel
               </button>
               <button className="btn-danger" onClick={confirmDelete}>
@@ -302,7 +349,7 @@ const TeacherHomePage = () => {
           <UpdateTest
             initialTestData={editingTest}
             onUpdate={handleUpdateSubmit}
-            onCancel={()=>setEditingTest(null)}
+            onCancel={() => setEditingTest(null)}
           />
         </div>
       )}

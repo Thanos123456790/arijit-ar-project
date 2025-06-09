@@ -11,6 +11,8 @@ import "../TeacherHome/TeacherHomePage.css";
 import Chatbot from "../Chatbot/Chatbot";
 import { useNavigate } from "react-router-dom";
 
+const API = `${import.meta.env.VITE_API_URL}`;
+
 const StudentHomePage = () => {
   const [tests, setTests] = useState([]);
   const [commentPopup, setCommentPopup] = useState({ visible: false, testId: null });
@@ -21,13 +23,30 @@ const StudentHomePage = () => {
 
   useEffect(() => {
     async function fetchTests() {
-      const res = await fetch("http://localhost:5000/api/tests");
-      const data = await res.json();
-      console.log(data);
-      setTests(data);
+      const res = await fetch(`${API}/tests`);
+      const all = await res.json();          // everything from the API
+      const me = JSON.parse(sessionStorage.getItem("currentUser"));
+      const mail = me?.email?.toLowerCase();  // student’s e-mail
+
+      const show = all.filter(t => {
+        if (!t.assignedTo || t.assignedTo.length === 0) return true;
+
+        const first = t.assignedTo[0];
+        if (typeof first === "string") {
+          return t.assignedTo.map(e => e.toLowerCase()).includes(mail);
+        }
+
+        return t.assignedTo.some(a =>
+          (Array.isArray(a.emails) && a.emails.map(e => e.toLowerCase()).includes(mail)) ||
+          (Array.isArray(a.email) && a.email.map(e => e.toLowerCase()).includes(mail))
+        );
+      });
+
+      setTests(show);
     }
     fetchTests();
   }, []);
+
 
   const handleWriteTest = (testId) => navigate(`/take-test?testId=${testId}`);
   const handleViewResults = (testId) => navigate(`/test-results?testId=${testId}`);
@@ -49,7 +68,7 @@ const StudentHomePage = () => {
       commentText,
     };
     console.log(commentText);
-    const res = await fetch("http://localhost:5000/api/comments/comment", {
+    const res = await fetch(`${API}/comments/comment`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -83,20 +102,20 @@ const StudentHomePage = () => {
       <section className="tests-section">
         <h3>Assigned Tests</h3>
         <div className="tests-container">
-          {tests.map((t,index) => (
+          {tests.map((t, index) => (
             <div key={index} className="test-card">
-              <h3><FaBook className="icon green"/> {t.name}</h3>
-              <p><FaClock className="icon yellow"/> Duration: {t.duration}</p>
+              <h3><FaBook className="icon green" /> {t.name}</h3>
+              <p><FaClock className="icon yellow" /> Duration: {t.duration}</p>
               <p>Total Score: {t.totalScore}</p>
               <div className="card-actions">
                 <button className="btn-info" onClick={() => handleWriteTest(t._id)}>
-                  Write Test <FaEdit/>
+                  Write Test <FaEdit />
                 </button>
                 <button className="btn-secondary" onClick={() => handleViewResults(t._id)}>
-                  Results <FaEye/>
+                  Results <FaEye />
                 </button>
                 <button className="btn-warning" onClick={() => openComment(t._id)}>
-                  Comment <FaCommentDots/>
+                  Comment <FaCommentDots />
                 </button>
               </div>
             </div>

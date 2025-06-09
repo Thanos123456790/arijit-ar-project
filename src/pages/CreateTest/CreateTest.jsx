@@ -12,6 +12,9 @@ import * as XLSX from "xlsx";
 import "./CreateTest.css";
 import { useNavigate } from "react-router-dom";
 
+const API = `${import.meta.env.VITE_API_URL}`;
+
+
 function CreateTest() {
   const [data, setData] = useState({});
   useEffect(() => {
@@ -122,7 +125,7 @@ function CreateTest() {
     };
 
     try {
-      const res = await fetch("http://localhost:5000/api/tests", {
+      const res = await fetch(`${API}/tests`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

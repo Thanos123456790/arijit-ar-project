@@ -12,6 +12,10 @@
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
+.sub-info span{margin-right:15px;font-size:14px}
+.ai-btn{background:#28a745}
+
+
 .evaluation-header {
   padding: 10px;
   background: #5b646d;
@@ -22,6 +26,9 @@
   z-index: 10;
 }
 
+p,h4{
+  color: black;
+}
 
 .evaluation-body {
   flex: 1;
@@ -54,7 +61,7 @@
   border-top: 1px solid #ddd;
 }
 
-.save-btn,
+.save-btn,.back-btn,
 .next-btn {
   flex: 1;
   margin: 0 5px;

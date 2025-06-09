@@ -1,134 +1,102 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import { FaCheck, FaArrowRight, FaRobot } from 'react-icons/fa';
+import { useLocation,useNavigate} from 'react-router-dom';
+import { FaCheck, FaArrowRight, FaRobot,FaBackward } from 'react-icons/fa';
 import './AiEvaluation.css'; // Using same styling
 import Chatbot from '../Chatbot/Chatbot';
 
+
+const API = `${import.meta.env.VITE_API_URL}`;
+
 function AIEvaluation() {
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const testId = queryParams.get('testId');
-
-  const [submissions, setSubmissions] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [comments, setComments] = useState({});
+   const testId  = new URLSearchParams(useLocation().search).get("testId");
+  const navigate = useNavigate();
+  const [subs, setSubs]     = useState([]);
+  const [idx,  setIdx]      = useState(0);
   const [scores, setScores] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [comms,  setComms]  = useState({});
+  const [loading, setLoad]  = useState(true);
 
+  /* ─── fetch submissions once ───────────── */
   useEffect(() => {
-    const storedSubmissions = JSON.parse(sessionStorage.getItem('submittedTests')) || [];
-    const testSubmissions = storedSubmissions.filter((submission) => submission.testId === testId);
-    setSubmissions(testSubmissions);
-    setIsLoading(false);
+    fetch(`${API}/submissions/test/${testId}`)
+      .then(r=>r.json())
+      .then((data)=>{ setSubs(data); setLoad(false); })
+      .catch(console.error);
   }, [testId]);
 
-  const currentSubmission = submissions[currentIndex];
+  console.log(subs);
 
-  const handleScoreChange = (questionIndex, value) => {
-    setScores((prev) => ({
-      ...prev,
-      [questionIndex]: value,
-    }));
-  };
+  const sub = subs[idx];
 
-  const handleCommentChange = (questionIndex, value) => {
-    setComments((prev) => ({
-      ...prev,
-      [questionIndex]: value,
-    }));
-  };
+  /* ─── inputs ───────────────────────────── */
+  const setScore  = (qIdx,val)=>setScores({...scores,[qIdx]:val});
+  const setComment= (qIdx,val)=>setComms({...comms,[qIdx]:val});
 
-  const handleSave = () => {
-    const updatedSubmissions = submissions.map((submission, index) =>
-      index === currentIndex
-        ? {
-            ...submission,
-            questions: submission.questions.map((q, idx) => ({
-              ...q,
-              teacherScore: scores[idx] || q.obtained,
-              teacherComment: comments[idx] || '',
-            })),
-          }
-        : submission
-    );
-    sessionStorage.setItem('submittedTests', JSON.stringify(updatedSubmissions));
-    alert('Evaluation saved successfully!');
-  };
-
-  const moveToNext = () => {
-    if (currentIndex < submissions.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      setScores({});
-      setComments({});
-    } else {
-      alert('You have evaluated all the submissions.');
-    }
-  };
-
-  // 💡 Simulated AI evaluation logic
-  const handleAIEvaluate = () => {
-    if (!currentSubmission) return;
-
-    const aiScores = {};
-    const aiComments = {};
-
-    currentSubmission.questions.forEach((q, index) => {
-      const answer = q.studentAnswer?.toLowerCase() || '';
-      const correct = q.correctAnswer?.toLowerCase() || '';
-      const maxScore = q.score;
-
-      const isExactMatch = answer === correct;
-      const isPartiallyCorrect = answer && correct && answer.includes(correct.split(' ')[0]);
-
-      let score = 0;
-      let comment = '';
-
-      if (isExactMatch) {
-        score = maxScore;
-        comment = 'Excellent. Exact match.';
-      } else if (isPartiallyCorrect) {
-        score = Math.floor(maxScore / 2);
-        comment = 'Partial answer. Needs improvement.';
-      } else if (!answer) {
-        comment = 'No answer provided.';
-      } else {
-        comment = 'Incorrect answer.';
-      }
-
-      aiScores[index] = score;
-      aiComments[index] = comment;
+  /* ─── save to backend ───────────────────── */
+  const saveEval = async () => {
+    const body = {
+      questions: Object.keys(scores).map(k=>({
+        idx: Number(k),
+        teacherScore:   Number(scores[k]),
+        teacherComment: comms[k] || "",
+      })),
+    };
+    const res = await fetch(`${API}/submissions/${sub._id}`, {
+      method:"PUT", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(body)
     });
-
-    setScores(aiScores);
-    setComments(aiComments);
-    alert('AI evaluation completed. You can review and adjust.');
+    if (res.ok) alert("Saved!");
+    // refresh local doc
+    const updated = await res.json();
+    const newSubs = subs.slice();
+    newSubs[idx] = updated.submission;
+    setSubs(newSubs);
   };
 
-  if (isLoading) {
-    return <div className="loading">Loading submissions...</div>;
-  }
+  /* ─── next submission ───────────────────── */
+  const next = () => {
+    if (idx < subs.length-1){ setIdx(idx+1); setScores({}); setComms({}); }
+    else alert("All submissions evaluated.");
+  };
 
-  if (submissions.length === 0) {
-    return <div className="no-submissions">No submissions available for this test.</div>;
-  }
+  /* ─── quick AI evaluation (front-end mock) ─ */
+  const aiEval = () => {
+    if (!sub) return;
+    const aiS = {}, aiC = {};
+    sub.evaluatedQuestions.forEach((q,i)=>{
+      const ans = q.studentAnswer?.toLowerCase()||"";
+      const corr= q.correctAnswer?.toLowerCase()||"";
+      const max = q.score;
+      if (!ans) { aiS[i]=0; aiC[i]="No answer"; }
+      else if (ans===corr){ aiS[i]=max; aiC[i]="Exact"; }
+      else if (ans.includes(corr.split(" ")[0])){ aiS[i]=Math.floor(max/2); aiC[i]="Partial"; }
+      else { aiS[i]=0; aiC[i]="Wrong"; }
+    });
+    setScores(aiS); setComms(aiC);
+  };
+
+  /* ─── render guards ─────────────────────── */
+  if (loading)            return <p className="loading">Loading…</p>;
+  if (!subs.length)       return <p>No submissions.</p>;
+
 
   return (
     <div className="manual-evaluation-container">
       <header className="evaluation-header">
         <h4 style={{ paddingBottom: '6px' }}>AI Evaluation Portal</h4>
         <p style={{ fontSize: '14px', display: 'flex', justifyContent: 'center', gap: '20px' }}>
-          <span><strong>Test Name:</strong> {currentSubmission.testName}</span>
-          <span><strong>Total Score:</strong> {currentSubmission.totalScore}</span>
-          <span><strong>Student Name:</strong> {currentSubmission.student.name}</span>
-          <span><strong>Roll Number:</strong> {currentSubmission.student.rollNumber}</span>
+          <span><strong>Test ID:</strong> {sub.testId}</span>
+          <span><strong>Total Score:</strong> {sub.totalScore}</span>
+          <span><strong>Student Name:</strong> {sub.studentName}</span>
+          {/* <span><strong>Roll Number:</strong> {sub.student.rollNumber}</span> */}
         </p>
       </header>
 
       <div className="evaluation-body">
         <div className="questions-list">
-          {currentSubmission.questions.map((q, index) => (
-            <div className="question-card" key={index}>
-              <h4>Question {index + 1}: {q.question}</h4>
+          {sub.evaluatedQuestions.map((q, i) => (
+            <div className="question-card" key={i}>
+              <h4>Question {i + 1}: {q.question}</h4>
               <p><strong>Student Answer:</strong> {q.studentAnswer || 'Not Answered'}</p>
               <p><strong>Correct Answer:</strong> {q.correctAnswer}</p>
 
@@ -138,8 +106,8 @@ function AIEvaluation() {
                   type="number"
                   min="0"
                   max={q.score}
-                  value={scores[index] || ''}
-                  onChange={(e) => handleScoreChange(index, e.target.value)}
+                  value={scores[i] || ''}
+                  onChange={e=>setScore(i,e.target.value)}
                   placeholder="Enter score"
                 />
               </div>
@@ -148,8 +116,8 @@ function AIEvaluation() {
                 <textarea
                   rows="2"
                   placeholder="Add a comment (optional)"
-                  value={comments[index] || ''}
-                  onChange={(e) => handleCommentChange(index, e.target.value)}
+                  value={comms[i] || ''}
+                  onChange={e=>setComment(i,e.target.value)}
                 />
               </div>
             </div>
@@ -158,16 +126,17 @@ function AIEvaluation() {
       </div>
 
       <footer className="evaluation-actions">
-        <button className="save-btn" onClick={handleSave}>
+        <button className="back-btn" onClick={() => navigate(-1)}><FaBackward /> Back</button>
+        <button className="save-btn" onClick={saveEval}>
           Save Evaluation <FaCheck />
         </button>
-        <button className="next-btn" onClick={moveToNext}>
+        <button className="next-btn" onClick={next}>
           Next Submission <FaArrowRight />
         </button>
         <button
           className="next-btn"
           style={{ backgroundColor: '#28a745' }}
-          onClick={handleAIEvaluate}
+          onClick={aiEval}
         >
           Evaluate with AI <FaRobot />
         </button>

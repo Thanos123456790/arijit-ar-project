@@ -1,141 +1,124 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import { FaCheck, FaCommentDots, FaArrowRight } from 'react-icons/fa';
-import './ManualEvaluation.css';
-import Chatbot from '../Chatbot/Chatbot';
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { FaCheck, FaArrowRight,FaBackward } from "react-icons/fa";
+import "./ManualEvaluation.css";
+import Chatbot from "../Chatbot/Chatbot";
 
-function ManualEvaluation() {
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const testId = queryParams.get('testId');
+const API = `${import.meta.env.VITE_API_URL}`;
 
-  const [submissions, setSubmissions] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [comments, setComments] = useState({});
+export default function ManualEvaluation() {
+  const testId = new URLSearchParams(useLocation().search).get("testId");
+  const navigate = useNavigate();
+  const [subs, setSubs] = useState([]);
+  const [idx, setIdx] = useState(0);
   const [scores, setScores] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [comms, setComms] = useState({});
+  const [loading, setLoading] = useState(true);
 
+  /* ─── fetch all submissions for this test ─── */
   useEffect(() => {
-    const storedSubmissions = JSON.parse(sessionStorage.getItem('submittedTests')) || [];
-    const testSubmissions = storedSubmissions.filter((submission) => submission.testId === testId);
-    setSubmissions(testSubmissions);
-    setIsLoading(false);
+    fetch(`${API}/submissions/test/${testId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setSubs(data);
+        setLoading(false);
+      })
+      .catch(console.error);
   }, [testId]);
 
-  const handleScoreChange = (questionIndex, value) => {
-    setScores((prev) => ({
-      ...prev,
-      [questionIndex]: value,
-    }));
+  /* ─── whenever we switch submission, prime inputs ─ */
+  useEffect(() => {
+    if (!subs[idx]) return;
+    const s = {};
+    const c = {};
+    subs[idx].evaluatedQuestions.forEach((q, i) => {
+      if (q.teacherScore != null) s[i] = q.teacherScore;
+      if (q.teacherComment) c[i] = q.teacherComment;
+    });
+    setScores(s);
+    setComms(c);
+  }, [idx, subs]);
+
+  if (loading) return <p className="loading">Loading…</p>;
+  if (!subs.length) return <p>No submissions for this test.</p>;
+
+  const sub = subs[idx];
+
+  /* ─── handlers ─────────────────────────────────── */
+  const setScore = (i, v) => setScores({ ...scores, [i]: v });
+  const setComment = (i, v) => setComms({ ...comms, [i]: v });
+
+  const save = async () => {
+    const body = {
+      questions: Object.keys(scores).map(k => ({
+        idx: Number(k),
+        teacherScore: Number(scores[k]),
+        teacherComment: comms[k] || ""
+      }))
+    };
+    const res = await fetch(`${API}/submissions/${sub._id}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (res.ok) {
+      alert("Saved!");
+      const updated = await res.json();
+      const copy = subs.slice();
+      copy[idx] = updated.submission;
+      setSubs(copy);
+    } else alert("Save failed");
   };
 
-  const handleCommentChange = (questionIndex, value) => {
-    setComments((prev) => ({
-      ...prev,
-      [questionIndex]: value,
-    }));
+  const next = () => {
+    if (idx < subs.length - 1) setIdx(idx + 1);
+    else alert("All submissions evaluated.");
   };
-
-  const handleSave = () => {
-    const updatedSubmissions = submissions.map((submission, index) =>
-      index === currentIndex
-        ? {
-            ...submission,
-            questions: submission.questions.map((q, idx) => ({
-              ...q,
-              teacherScore: scores[idx] || q.obtained,
-              teacherComment: comments[idx] || '',
-            })),
-          }
-        : submission
-    );
-    sessionStorage.setItem('submittedTests', JSON.stringify(updatedSubmissions));
-    alert('Evaluation saved successfully!');
-  };
-
-  const moveToNext = () => {
-    if (currentIndex < submissions.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-      setScores({});
-      setComments({});
-    } else {
-      alert('You have evaluated all the submissions.');
-    }
-  };
-
-  if (isLoading) {
-    return <div className="loading">Loading submissions...</div>;
-  }
-
-  if (submissions.length === 0) {
-    return <div className="no-submissions">No submissions available for this test.</div>;
-  }
-
-  const currentSubmission = submissions[currentIndex];
 
   return (
     <div className="manual-evaluation-container">
       <header className="evaluation-header">
-        <h4 style={{paddingBottom:"6px"}}> Evaluation Portal</h4>
-<p style={{ fontSize: '14px', display: 'flex',justifyContent:"center", gap: '20px' }}>
-    <span><strong>Test Name:</strong>   {currentSubmission.testName}</span>
-  <span><strong>Total Score:</strong> {currentSubmission.totalScore}</span>
-
-  <span><strong>Student Name:</strong> {currentSubmission.student.name}</span>
-  <span><strong>Roll Number:</strong> {currentSubmission.student.rollNumber}</span>
-
-</p>
+        <h4>Manual Evaluation Portal</h4>
+        <p className="sub-info">
+          <span><strong>TestId:</strong> {sub.testId}</span>
+          <span><strong>Total:</strong> {sub.totalScore}</span>
+          <span><strong>Student:</strong> {sub.studentName}</span>
+        </p>
       </header>
-      <div className="evaluation-body">
-        <div className="questions-list">
-          {currentSubmission.questions.map((q, index) => (
-            <div className="question-card" key={index}>
-              <h4>Question {index + 1}: {q.question}</h4>
-              <p>
-                <strong>Student Answer:</strong> {q.studentAnswer || 'Not Answered'}
-              </p>
-              <p>
-                <strong>Correct Answer:</strong> {q.correctAnswer}
-              </p>
-              <div className="input-group">
-                <label>Score:</label>
-                <input
-                  type="number"
-                  min="0"
-                  max={q.score}
-                  value={scores[index] || q.obtained}
-                  onChange={(e) => handleScoreChange(index, e.target.value)}
-                  placeholder="Enter score"
-                />
-              </div>
-              <div className="input-group">
-                <label>Comment:</label>
-                <textarea
-                  rows="2"
-                  placeholder="Add a comment (optional)"
-                  value={comments[index] || ''}
-                  onChange={(e) => handleCommentChange(index, e.target.value)}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <footer className="evaluation-actions">
-        <button className="save-btn" onClick={handleSave}>
-          Save Evaluation <FaCheck />
-        </button>
-        <button
-          className="next-btn"
-          onClick={moveToNext}
-          disabled={currentIndex >= submissions.length - 1}
-        >
-          Next Submission <FaArrowRight />
-        </button>
-      </footer>      <Chatbot />
 
+      <div className="evaluation-body">
+        {sub.evaluatedQuestions.map((q, i) => (
+          <div className="question-card" key={i}>
+            <h4>Q{i + 1}: {q.question}</h4>
+            <p><strong>Answer:</strong> {q.studentAnswer || "—"}</p>
+            <p><strong>Correct:</strong> {q.correctAnswer}</p>
+
+            <label>Score:
+              <input type="number" min="0" max={q.score}
+                value={scores[i] ?? q.obtained}
+                onChange={e => setScore(i, e.target.value)} />
+            </label>
+
+            <label>Comment:
+              <textarea rows="2"
+                value={comms[i] ?? ""}
+                onChange={e => setComment(i, e.target.value)} />
+            </label>
+          </div>
+        ))}
+      </div>
+
+      <footer className="evaluation-actions">
+        <button className="back-btn" onClick={() => navigate(-1)}><FaBackward /> Back</button>
+        <button className="save-btn" onClick={save}>
+          Save <FaCheck />
+        </button>
+        <button className="next-btn" onClick={next}
+          disabled={idx >= subs.length - 1}>
+          Next <FaArrowRight />
+        </button>
+      </footer>
+
+      <Chatbot />
     </div>
   );
 }
-
-export default ManualEvaluation;
