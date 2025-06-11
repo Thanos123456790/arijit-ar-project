@@ -8,57 +8,85 @@ import {
   Box,
   Button,
   Badge,
+  Avatar,
 } from "@mui/material";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import MailIcon from "@mui/icons-material/Mail";
 import CloseIcon from "@mui/icons-material/Close";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const CHAT_API = `${import.meta.env.VITE_API_URL}/chats`;
+const API      = import.meta.env.VITE_API_URL;
+const CHAT_API = `${API}/chats`;
+const USER_API = `${API}/users`;
 
 export default function TopNavbar() {
-  const location   = useLocation();
-  const navigate   = useNavigate();
-  const currentUser = JSON.parse(sessionStorage.getItem("currentUser"));
+  const location     = useLocation();
+  const navigate     = useNavigate();
+  const cachedUser   = JSON.parse(sessionStorage.getItem("currentUser") || "{}");
+  const [user, setUser] = useState(cachedUser);
 
-  /* popover */
+  useEffect(() => {
+    if (!cachedUser?._id) return;
+
+    const fetchUser = async () => {
+      try {
+        const res = await fetch(`${USER_API}/${cachedUser._id}`);
+        if (!res.ok) throw new Error("Fetch failed");
+        const full = await res.json();
+        sessionStorage.setItem("currentUser", JSON.stringify(full)); // keep in sync
+        setUser(full);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchUser();
+  }, [cachedUser?._id]);
+
+
   const [anchorEl, setAnchorEl] = useState(null);
-  const open  = Boolean(anchorEl);
-  const popId = open ? "user-pop" : undefined;
+  const popOpen = Boolean(anchorEl);
   const logout = () => {
-    sessionStorage.clear();              // token + user
+    sessionStorage.clear();
     setAnchorEl(null);
     navigate("/");
   };
 
-  /* ─── unread badge state ─── */
-  const [unread, setUnread] = useState(0);
-  const lastSeenKey = `chatLastSeen_${currentUser?._id}`;
 
-  /* fetch unread count every 5 s */
+  const [unread, setUnread] = useState(0);
+  const lastSeenKey = `chatLastSeen_${user?._id}`;
+
   useEffect(() => {
-    if (!currentUser) return;
+    if (!user?._id) return;
     const fetchUnread = async () => {
-      const since = localStorage.getItem(lastSeenKey) || "";
-      const res   = await fetch(`${CHAT_API}?since=${since}`);
-      const data  = await res.json();
-      const unseen = data.filter(m => m.senderId !== currentUser._id).length;
+      const since   = localStorage.getItem(lastSeenKey) || "";
+      const res     = await fetch(`${CHAT_API}?since=${since}`);
+      const msgs    = await res.json();
+      const unseen  = msgs.filter(m => m.senderId !== user._id).length;
       setUnread(unseen);
     };
     fetchUnread();
     const id = setInterval(fetchUnread, 5000);
     return () => clearInterval(id);
-  }, [currentUser, lastSeenKey]);
+  }, [user?._id, lastSeenKey]);
 
-  /* hide on landing page */
+
+
   if (location.pathname === "/") return null;
 
-  /* open chat */
+
   const openChat = () => {
-    localStorage.setItem(lastSeenKey, new Date().toISOString()); // reset counter
+    localStorage.setItem(lastSeenKey, new Date().toISOString());
     setUnread(0);
     navigate("/ems-integrated-chat");
   };
+
+
+  const avatarNode = user?.image ? (
+    <Avatar src={user.image} sx={{ width: 32, height: 32 }} />
+  ) : (
+    <AccountCircleIcon sx={{ fontSize: 32 }} />
+  );
 
   return (
     <>
@@ -105,20 +133,16 @@ export default function TopNavbar() {
                 <MailIcon />
               </Badge>
             </IconButton>
-            <IconButton
-              sx={{ width: "50px" }}
-              onClick={e=>setAnchorEl(e.currentTarget)}
-              color="inherit"
-            >
-              <AccountCircleIcon sx={{ fontSize: 32 }} />
+            <IconButton size="large" sx={{width:"40px", height:"40px"}} color="inherit" onClick={e => setAnchorEl(e.currentTarget)}>
+              {avatarNode}
             </IconButton>
           </Box>
         </Toolbar>
       </AppBar>
 
       <Popover
-        id={popId}
-        open={open}
+        id={popOpen ? "user-pop" : undefined}
+        open={popOpen}
         anchorEl={anchorEl}
         onClose={()=>setAnchorEl(null)}
         anchorOrigin={{
@@ -133,13 +157,13 @@ export default function TopNavbar() {
       >
         <Box sx={{ p: 2, minWidth: 220 }}>
           <Typography variant="subtitle1">
-            <strong>User Name:</strong> {currentUser?.name}
+            <strong>User Name:</strong> {user?.name}
           </Typography>
           <Typography variant="body2">
-            <strong>Email:</strong> {currentUser?.email}
+            <strong>Email:</strong> {user?.email}
           </Typography>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            <strong>Role:</strong> {currentUser?.role}
+            <strong>Role:</strong> {user?.role}
           </Typography>
           <Button
             variant="contained"
@@ -156,7 +180,7 @@ export default function TopNavbar() {
             variant="contained"
             color="secondary"
             fullWidth
-            startIcon={<AccountCircleIcon />}
+            startIcon={<AccountCircleIcon /> }
             onClick={()=>{ setAnchorEl(null); navigate("/profile"); }}
           >
             Manage Profile

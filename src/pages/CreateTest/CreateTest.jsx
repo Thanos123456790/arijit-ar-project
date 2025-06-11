@@ -22,7 +22,7 @@ function CreateTest() {
     setData(user ? JSON.parse(user) : {});
   }, []);
   const TEACHER_ID = data._id;
-  console.log(TEACHER_ID);
+  // console.log(TEACHER_ID);
 
   const [testName, setTestName] = useState("");
   const [evaluationType, setEvaluationType] = useState("Automated");

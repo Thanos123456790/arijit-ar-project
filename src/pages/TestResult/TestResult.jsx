@@ -30,6 +30,7 @@ function TestResults() {
           `${API}/submissions/student?testId=${testId}&studentId=${studentInfo._id}`
         );
         const data = await res.json();
+        // console.log(data);
 
         if (!res.ok || !data || data.length === 0 || !data.evaluatedQuestions) {
           setIsResultAvailable(false);
@@ -129,7 +130,7 @@ Percentage    : ${testResult.percentage}%
       {showAnswers && (
         <div className="answers-section">
           <h3>Student Answers</h3>
-          {testResult.questions.map((q, i) => (
+          {testResult.evaluatedQuestions.map((q, i) => (
             <div key={i} className="answer-block">
               <p><strong>Q{i + 1}:</strong> {q.question}</p>
               <p><strong>Student Answer:</strong> {q.studentAnswer}</p>

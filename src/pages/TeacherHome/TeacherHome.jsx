@@ -71,7 +71,7 @@ const TeacherHomePage = () => {
     if (!list.length) return alert("No e-mails provided.");
 
     const payload = { emails: list };
-    console.log("all emails" + JSON.stringify(payload));
+    // console.log("all emails" + JSON.stringify(payload));
     const res = await fetch(`${API}/${selectedTestId}/assign`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

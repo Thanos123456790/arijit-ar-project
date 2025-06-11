@@ -4,7 +4,6 @@ import "./AdminHome.css";
 import Chatbot from "../Chatbot/Chatbot";
 
 const API = `${import.meta.env.VITE_API_URL}/users`;
-console.log(API);
 
 export default function AdminHomePage() {
   const [users, setUsers] = useState([]);

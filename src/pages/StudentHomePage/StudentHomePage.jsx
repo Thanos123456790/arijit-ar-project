@@ -1,84 +1,65 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  FaClipboardList,
-  FaBook,
-  FaClock,
-  FaCommentDots,
-  FaEdit,
-  FaEye,
+  FaClipboardList, FaBook, FaClock,
+  FaCommentDots, FaEdit, FaEye
 } from "react-icons/fa";
-import "../TeacherHome/TeacherHomePage.css";
-import Chatbot from "../Chatbot/Chatbot";
 import { useNavigate } from "react-router-dom";
+import Chatbot from "../Chatbot/Chatbot";
+import "../TeacherHome/TeacherHomePage.css";
 
 const API = `${import.meta.env.VITE_API_URL}`;
 
-const StudentHomePage = () => {
-  const [tests, setTests] = useState([]);
-  const [commentPopup, setCommentPopup] = useState({ visible: false, testId: null });
-  const [commentText, setCommentText] = useState("");
+export default function StudentHomePage() {
   const navigate = useNavigate();
-
   const currentUser = JSON.parse(sessionStorage.getItem("currentUser"));
 
+  const [tests,      setTests]      = useState([]);
+  const [submitted,  setSubmitted]  = useState(new Set());   // ← NEW
+  const [commentBox, setCommentBox] = useState({ show:false, id:null });
+  const [comment,    setComment]    = useState("");
+
+  /* 1️⃣  fetch all tests (same as before, but simplified) */
   useEffect(() => {
-    async function fetchTests() {
-      const res = await fetch(`${API}/tests`);
-      const all = await res.json();          // everything from the API
-      const me = JSON.parse(sessionStorage.getItem("currentUser"));
-      const mail = me?.email?.toLowerCase();  // student’s e-mail
-
-      const show = all.filter(t => {
-        if (!t.assignedTo || t.assignedTo.length === 0) return true;
-
-        const first = t.assignedTo[0];
-        if (typeof first === "string") {
-          return t.assignedTo.map(e => e.toLowerCase()).includes(mail);
-        }
-
-        return t.assignedTo.some(a =>
-          (Array.isArray(a.emails) && a.emails.map(e => e.toLowerCase()).includes(mail)) ||
-          (Array.isArray(a.email) && a.email.map(e => e.toLowerCase()).includes(mail))
-        );
-      });
-
-      setTests(show);
-    }
-    fetchTests();
+    fetch(`${API}/tests`)
+      .then(r=>r.json())
+      .then(setTests)
+      .catch(console.error);
   }, []);
 
+  /* 2️⃣  fetch my submissions → set of testIds */
+  useEffect(() => {
+    fetch(`${API}/submissions/student/${currentUser._id}`)
+      .then(r=>r.json())
+      .then(arr => setSubmitted(new Set(arr.map(o=>String(o.testId)))))
+      .catch(console.error);
+  }, [currentUser._id]);
 
-  const handleWriteTest = (testId) => navigate(`/take-test?testId=${testId}`);
-  const handleViewResults = (testId) => navigate(`/test-results?testId=${testId}`);
-  const totalAssigned = tests.length;
-  const totalAttempted = tests.filter((t) => t.studentsAttempted > 0).length;
+  /* 3️⃣  derived metrics */
+  const totalAssigned  = tests.length;
+  const totalAttempted = submitted.size;
 
-  const openComment = (testId) => {
-    console.log(testId);
-    setCommentPopup({ visible: true, testId });
-    setCommentText("");
-  };
+  /* 4️⃣  handlers */
+  const handleWriteTest   = id => navigate(`/take-test?testId=${id}`);
+  const handleViewResults = id => navigate(`/test-results?testId=${id}`);
 
-  const submitComment = async () => {
-    if (!commentText.trim()) return alert("Enter a comment.");
-    const payload = {
-      testId: commentPopup.testId,
-      userId: currentUser._id,
-      userName: currentUser.name,
-      commentText,
-    };
-    console.log(commentText);
-    const res = await fetch(`${API}/comments/comment`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+  const openComment = id => { setCommentBox({show:true,id}); setComment(""); };
+
+  const sendComment = async () => {
+    if (!comment.trim()) return alert("Enter a comment");
+    const res = await fetch(`${API}/comments/comment`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        testId: commentBox.id,
+        userId: currentUser._id,
+        userName: currentUser.name,
+        commentText: comment
+      })
     });
-    if (res.ok) {
-      alert("Comment submitted!");
-      setCommentPopup({ visible: false, testId: null });
-    } else {
-      alert("Failed to submit comment.");
-    }
+    if (res.ok){
+      alert("Submitted!");
+      setCommentBox({show:false,id:null});
+    } else alert("Failed");
   };
 
   return (
@@ -108,9 +89,11 @@ const StudentHomePage = () => {
               <p><FaClock className="icon yellow" /> Duration: {t.duration}</p>
               <p>Total Score: {t.totalScore}</p>
               <div className="card-actions">
-                <button className="btn-info" onClick={() => handleWriteTest(t._id)}>
-                  Write Test <FaEdit />
-                </button>
+                {!submitted.has(String(t._id)) && (
+                  <button className="btn-info" onClick={()=>handleWriteTest(t._id)}>
+                    Write Test <FaEdit/>
+                  </button>
+                )}
                 <button className="btn-secondary" onClick={() => handleViewResults(t._id)}>
                   Results <FaEye />
                 </button>
@@ -122,19 +105,24 @@ const StudentHomePage = () => {
           ))}
         </div>
       </section>
-      {commentPopup.visible && (
+      {commentBox.visible && (
         <div className="popup-overlay">
           <div className="popup-content">
             <h3>Comment on Test</h3>
             <textarea
               rows="5"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
               placeholder="Write comment..."
             />
             <div className="popup-actions">
-              <button className="btn-secondary" onClick={() => setCommentPopup({ visible: false, testId: null })}>Cancel</button>
-              <button className="btn-success" onClick={submitComment}>Submit</button>
+              <button className="btn-secondary"
+                      onClick={()=>setCommentBox({show:false,id:null})}>
+                Cancel
+              </button>
+              <button className="btn-success" onClick={sendComment}>
+                Submit
+              </button>
             </div>
           </div>
         </div>
@@ -143,5 +131,3 @@ const StudentHomePage = () => {
     </div>
   );
 };
-
-export default StudentHomePage;

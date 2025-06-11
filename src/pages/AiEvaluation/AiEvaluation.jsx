@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation,useNavigate} from 'react-router-dom';
-import { FaCheck, FaArrowRight, FaRobot,FaBackward } from 'react-icons/fa';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { FaCheck, FaArrowRight, FaRobot, FaBackward } from 'react-icons/fa';
 import './AiEvaluation.css'; // Using same styling
 import Chatbot from '../Chatbot/Chatbot';
 
@@ -8,54 +8,67 @@ import Chatbot from '../Chatbot/Chatbot';
 const API = `${import.meta.env.VITE_API_URL}`;
 
 function AIEvaluation() {
-   const testId  = new URLSearchParams(useLocation().search).get("testId");
+  const testId = new URLSearchParams(useLocation().search).get("testId");
   const navigate = useNavigate();
-  const [subs, setSubs]     = useState([]);
-  const [idx,  setIdx]      = useState(0);
+  const [subs, setSubs] = useState([]);
+  const [idx, setIdx] = useState(0);
   const [scores, setScores] = useState({});
-  const [comms,  setComms]  = useState({});
-  const [loading, setLoad]  = useState(true);
+  const [comms, setComms] = useState({});
+  const [loading, setLoad] = useState(true);
 
   /* ─── fetch submissions once ───────────── */
   useEffect(() => {
     fetch(`${API}/submissions/test/${testId}`)
-      .then(r=>r.json())
-      .then((data)=>{ setSubs(data); setLoad(false); })
+      .then(r => r.json())
+      .then((data) => { setSubs(data); setLoad(false); })
       .catch(console.error);
   }, [testId]);
 
-  console.log(subs);
+  // console.log(subs);
 
   const sub = subs[idx];
 
   /* ─── inputs ───────────────────────────── */
-  const setScore  = (qIdx,val)=>setScores({...scores,[qIdx]:val});
-  const setComment= (qIdx,val)=>setComms({...comms,[qIdx]:val});
+  const setScore = (qIdx, val) => setScores({ ...scores, [qIdx]: val });
+  const setComment = (qIdx, val) => setComms({ ...comms, [qIdx]: val });
 
-  /* ─── save to backend ───────────────────── */
   const saveEval = async () => {
-    const body = {
-      questions: Object.keys(scores).map(k=>({
-        idx: Number(k),
-        teacherScore:   Number(scores[k]),
-        teacherComment: comms[k] || "",
-      })),
-    };
+    const updates = Object.keys(scores).map(k => ({
+      idx: Number(k),
+      teacherScore: Number(scores[k]),
+      teacherComment: comms[k] || "",
+    }));
+
+    /* client-side validation */
+    for (const { idx, teacherScore } of updates) {
+      const max = sub.evaluatedQuestions[idx].score;
+      if (teacherScore > max || teacherScore < 0) {
+        return alert(`Score for Q${idx + 1} must be between 0 and ${max}`);
+      }
+    }
+
     const res = await fetch(`${API}/submissions/${sub._id}`, {
-      method:"PUT", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(body)
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ questions: updates }),
     });
-    if (res.ok) alert("Saved!");
-    // refresh local doc
-    const updated = await res.json();
-    const newSubs = subs.slice();
-    newSubs[idx] = updated.submission;
-    setSubs(newSubs);
+
+    if (!res.ok) {
+      const err = await res.json();
+      return alert(err.error || "Save failed");
+    }
+
+    const { submission } = await res.json();
+    setSubs(prev => prev.map((s, i) => (i === idx ? submission : s)));
+    setScores({});
+    setComms({});
+    alert("Saved!");
   };
+
 
   /* ─── next submission ───────────────────── */
   const next = () => {
-    if (idx < subs.length-1){ setIdx(idx+1); setScores({}); setComms({}); }
+    if (idx < subs.length - 1) { setIdx(idx + 1); setScores({}); setComms({}); }
     else alert("All submissions evaluated.");
   };
 
@@ -63,21 +76,21 @@ function AIEvaluation() {
   const aiEval = () => {
     if (!sub) return;
     const aiS = {}, aiC = {};
-    sub.evaluatedQuestions.forEach((q,i)=>{
-      const ans = q.studentAnswer?.toLowerCase()||"";
-      const corr= q.correctAnswer?.toLowerCase()||"";
+    sub.evaluatedQuestions.forEach((q, i) => {
+      const ans = q.studentAnswer?.toLowerCase() || "";
+      const corr = q.correctAnswer?.toLowerCase() || "";
       const max = q.score;
-      if (!ans) { aiS[i]=0; aiC[i]="No answer"; }
-      else if (ans===corr){ aiS[i]=max; aiC[i]="Exact"; }
-      else if (ans.includes(corr.split(" ")[0])){ aiS[i]=Math.floor(max/2); aiC[i]="Partial"; }
-      else { aiS[i]=0; aiC[i]="Wrong"; }
+      if (!ans) { aiS[i] = 0; aiC[i] = "No answer"; }
+      else if (ans === corr) { aiS[i] = max; aiC[i] = "Exact"; }
+      else if (ans.includes(corr.split(" ")[0])) { aiS[i] = Math.floor(max / 2); aiC[i] = "Partial"; }
+      else { aiS[i] = 0; aiC[i] = "Wrong"; }
     });
     setScores(aiS); setComms(aiC);
   };
 
   /* ─── render guards ─────────────────────── */
-  if (loading)            return <p className="loading">Loading…</p>;
-  if (!subs.length)       return <p>No submissions.</p>;
+  if (loading) return <p className="loading">Loading…</p>;
+  if (!subs.length) return <p>No submissions.</p>;
 
 
   return (
@@ -87,6 +100,8 @@ function AIEvaluation() {
         <p style={{ fontSize: '14px', display: 'flex', justifyContent: 'center', gap: '20px' }}>
           <span><strong>Test ID:</strong> {sub.testId}</span>
           <span><strong>Total Score:</strong> {sub.totalScore}</span>
+          <span><strong>Obtained:</strong> {sub.obtainedScore}</span>
+          <span><strong>%:</strong> {sub.percentage}</span>
           <span><strong>Student Name:</strong> {sub.studentName}</span>
           {/* <span><strong>Roll Number:</strong> {sub.student.rollNumber}</span> */}
         </p>
@@ -107,7 +122,7 @@ function AIEvaluation() {
                   min="0"
                   max={q.score}
                   value={scores[i] || ''}
-                  onChange={e=>setScore(i,e.target.value)}
+                  onChange={e => setScore(i, e.target.value)}
                   placeholder="Enter score"
                 />
               </div>
@@ -117,7 +132,7 @@ function AIEvaluation() {
                   rows="2"
                   placeholder="Add a comment (optional)"
                   value={comms[i] || ''}
-                  onChange={e=>setComment(i,e.target.value)}
+                  onChange={e => setComment(i, e.target.value)}
                 />
               </div>
             </div>

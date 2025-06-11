@@ -1,226 +1,236 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useRef } from "react";
 import {
   Avatar,
   Box,
   Button,
   Container,
-  FormControl,
   Grid,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   TextField,
   Typography,
-} from '@mui/material';
+} from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import dayjs from "dayjs";
 import "./UserProfile.css";
-import { useNavigate } from 'react-router-dom';
 
-const UserProfile = () => {
+const API = `${import.meta.env.VITE_API_URL}/users`;
+
+export default function UserProfile() {
   const navigate = useNavigate();
-  const [previewImage, setPreviewImage] = useState(null);
 
+  /* -----------------------------------------------------------
+     1.  Read current user ONCE (not on every render!)
+         We keep it in a ref so that its identity never changes,
+         preventing the useEffect dependency from firing forever.
+  ----------------------------------------------------------- */
+  const currentUserRef = useRef(
+    JSON.parse(sessionStorage.getItem("currentUser") || "{}")
+  );
+  const currentUser = currentUserRef.current;
+
+  /* -----------------------------------------------------------
+     2.  Local state for profile form + avatar preview
+  ----------------------------------------------------------- */
+  const [preview, setPreview] = useState(null);
   const [profile, setProfile] = useState({
-    fullName: '',
-    email: '',
-    role: '',
-    bio: '',
-    phone: '',
-    address: '',
-    dob: '',
-    gender: '',
+    fullName: "",
+    email: "",
+    role: "",
+    phone: "",
+    dob: "",
+    bio: "",
+    address: "",
+    gender: "",
     image: null,
   });
 
-  // Load user data from sessionStorage on mount
+  /* -----------------------------------------------------------
+     3.  Initialise form data exactly once on mount
+  ----------------------------------------------------------- */
   useEffect(() => {
-    const currentUser = JSON.parse(sessionStorage.getItem('currentUser'));
-    if (currentUser) {
+    if (currentUser._id) {
       setProfile({
-        fullName: currentUser.name || '',
-        email: currentUser.email || '',
-        role: currentUser.role || '',
-        phone: currentUser.phone || '',
-        dob: currentUser.dateOfBirth || '',
-        bio: currentUser.bio || '',
-        address: currentUser.address || '',
-        gender: currentUser.gender || '',
+        fullName: currentUser.name || "",
+        email: currentUser.email || "",
+        role: currentUser.role || "",
+        phone: currentUser.phone || "",
+        dob: currentUser.dateOfBirth
+          ? dayjs(currentUser.dateOfBirth).format("YYYY-MM-DD")
+          : "",
+        bio: currentUser.bio || "",
+        address: currentUser.address || "",
+        gender: currentUser.gender || "",
         image: currentUser.image || null,
       });
-      setPreviewImage(currentUser.image || null);
+      setPreview(currentUser.image || null);
     }
-  }, []);
+  }, []); //  <-- empty dependency array (runs once)
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setProfile((prev) => ({ ...prev, [name]: value }));
-  };
+  /* -----------------------------------------------------------
+     4.  Field handlers
+  ----------------------------------------------------------- */
+  const onChange = (e) =>
+    setProfile({ ...profile, [e.target.name]: e.target.value });
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
+  const onImg = (e) => {
+    const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
-      setPreviewImage(reader.result);
-      setProfile((prev) => ({ ...prev, image: reader.result }));
+      setPreview(reader.result);
+      setProfile((p) => ({ ...p, image: reader.result }));
     };
     reader.readAsDataURL(file);
   };
-const handleSave = () => {
-  const currentUserId = sessionStorage.getItem('currentUserId');
 
-  // Get the current user from sessionStorage
-  const currentUser = JSON.parse(sessionStorage.getItem('currentUser')) || {};
+  /* -----------------------------------------------------------
+     5.  Save profile
+  ----------------------------------------------------------- */
+  const save = async () => {
+    const payload = {
+      name: profile.fullName,
+      phone: profile.phone,
+      dateOfBirth: profile.dob,
+      bio: profile.bio,
+      address: profile.address,
+      gender: profile.gender,
+      image: profile.image,
+    };
 
-  // Merge only updated fields, preserving existing ones
-  const updatedUser = {
-    ...currentUser,
-    name: profile.fullName,
-    email: profile.email,
-    role: profile.role,
-    phone: profile.phone,
-    dateOfBirth: profile.dob,
-    bio: profile.bio,
-    address: profile.address,
-    gender: profile.gender,
-    image: profile.image,
+    // console.log("data",payload);
+
+    try {
+      const res = await fetch(`${API}/${currentUser._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        return alert(err.error || "Update failed");
+      }
+
+      const updated = await res.json();
+      sessionStorage.setItem("currentUser", JSON.stringify(updated));
+      alert("Profile saved!");
+
+      navigate(
+        updated.role === "teacher"
+          ? "/teacher-home"
+          : updated.role === "admin"
+          ? "/admin-home"
+          : "/student-home"
+      );
+    } catch (err) {
+      console.error(err);
+      alert("Server error");
+    }
   };
 
-  // Update users list
-  const users = JSON.parse(sessionStorage.getItem('users')) || [];
-  const updatedUsers = users.map((user) =>
-    user.userId === currentUserId ? { ...user, ...updatedUser } : user
-  );
-
-  // Save back to sessionStorage
-  sessionStorage.setItem('users', JSON.stringify(updatedUsers));
-  sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
-
-  navigate('/student-home');
-};
-
+  /* -----------------------------------------------------------
+     6.  UI
+  ----------------------------------------------------------- */
   return (
-    <Container style={{ border: "none", width: "60%" }}>
+    <Container sx={{ width: { xs: "100%", md: "60%" } }}>
       <Paper elevation={4} sx={{ p: 4, borderRadius: 3 }}>
-        <Typography
-          variant="h5"
-          fontWeight="bold"
-          textAlign="center"
-          gutterBottom
-        >
+        <Typography variant="h5" fontWeight="bold" align="center" gutterBottom>
           My Profile
         </Typography>
 
+        {/* Avatar & uploader */}
         <Box display="flex" flexDirection="column" alignItems="center" mb={3}>
-          <Avatar src={previewImage} sx={{ width: 100, height: 100, mb: 2 }} />
+          <Avatar src={preview} sx={{ width: 100, height: 100, mb: 2 }} />
           <Button variant="contained" component="label" size="small">
             Upload Photo
-            <input hidden accept="image/*" type="file" onChange={handleImageUpload} />
+            <input hidden accept="image/*" type="file" onChange={onImg} />
           </Button>
         </Box>
 
+        {/* Form */}
         <Grid container spacing={2}>
           <Grid item md={6} xs={12}>
             <TextField
               name="fullName"
-              placeholder="Full Name"
+              label="Full Name"
               fullWidth
               value={profile.fullName}
-              onChange={handleChange}
-              sx={{ '& input': { border: 'none', outline: 'none' } }}
+              onChange={onChange}
             />
           </Grid>
 
           <Grid item md={6} xs={12}>
             <TextField
               name="email"
-              placeholder="Email"
+              label="Email"
               fullWidth
               value={profile.email}
               InputProps={{ readOnly: true }}
-              sx={{ '& input': { border: 'none', outline: 'none' } }}
             />
           </Grid>
 
-          <Grid item md={2}>
+          <Grid item md={2} xs={6}>
             <TextField
               name="role"
-              placeholder="Role"
+              label="Role"
               fullWidth
               value={profile.role}
               InputProps={{ readOnly: true }}
-              sx={{ '& input': { border: 'none', outline: 'none' } }}
             />
           </Grid>
 
           <Grid item xs={12}>
             <TextField
               name="phone"
-              placeholder="Phone Number"
+              label="Phone"
               fullWidth
               value={profile.phone}
-              onChange={handleChange}
-              sx={{ '& input': { border: 'none', outline: 'none' } }}
+              onChange={onChange}
             />
           </Grid>
 
           <Grid item xs={6}>
             <TextField
               name="dob"
-              placeholder="Date of Birth"
+              label="Date of Birth"
               type="date"
               fullWidth
               value={profile.dob}
-              onChange={handleChange}
+              onChange={onChange}
               InputLabelProps={{ shrink: true }}
-              sx={{ height: "10", width: "180px", '& input': { border: 'none', outline: 'none' } }}
-              InputProps={{
-                sx: {
-                  padding: '4px',
-                  height: '36px',
-                  fontSize: '0.875rem',
-                },
-              }}
             />
           </Grid>
 
           <Grid item xs={12}>
             <TextField
               name="address"
-              placeholder="Address"
+              label="Address"
               fullWidth
               value={profile.address}
-              onChange={handleChange}
-              sx={{ '& input': { border: 'none', outline: 'none' } }}
+              onChange={onChange}
             />
           </Grid>
 
           <Grid item xs={12}>
             <TextField
               name="bio"
-              placeholder="Bio"
+              label="Bio"
               fullWidth
               multiline
               minRows={2}
-              maxRows={2}
               value={profile.bio}
-              onChange={handleChange}
-              sx={{ width: "250px", '& textarea': { border: 'none', outline: 'none' } }}
+              onChange={onChange}
             />
           </Grid>
-
-          <Grid item xs={12}></Grid>
         </Grid>
 
-        <br />
-        <Grid item md={12} xs={12} style={{ display: "flex", justifyContent: "center" }}>
-          <Button variant="contained" sx={{ width: "50%" }} color="primary" fullWidth onClick={handleSave}>
+        {/* Save button */}
+        <Box mt={4} display="flex" justifyContent="center">
+          <Button variant="contained" sx={{ width: "50%" }} onClick={save}>
             Save Profile
           </Button>
-        </Grid>
+        </Box>
       </Paper>
     </Container>
   );
-};
-
-export default UserProfile;
+}

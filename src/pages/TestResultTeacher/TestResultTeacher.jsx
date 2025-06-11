@@ -256,6 +256,7 @@ export default function TeacherTestResults() {
                   <p className={q.obtained === q.score ? "correct" : "incorrect"}>
                     <strong>Score:</strong> {q.obtained}/{q.score}
                   </p>
+                  <p><strong>Teacher Comment:</strong> {q.teacherComment || "—"}</p>
                 </div>
               ))}
             </div>
