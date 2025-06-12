@@ -1,45 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   FaTrashAlt,
   FaPlusCircle,
   FaCheck,
   FaClock,
   FaFileAlt,
-  FaClipboardList,
-  FaEdit
-} from 'react-icons/fa';
-import './UpdateTest.css';
+  FaCalendarAlt,
+  FaEdit,
+} from "react-icons/fa";
+import "./UpdateTest.css";
+import { useAlert } from "../../hooks/useAlert";
 
 function UpdateTest({ initialTestData, onUpdate, onCancel }) {
-  const [testName, setTestName] = useState('');
-  const [testDuration, setTestDuration] = useState('');
-  const [totalScore, setTotalScore] = useState('');
+  const { show, AlertPortal } = useAlert();
+  const [testName, setTestName] = useState("");
+  const [testDuration, setTestDuration] = useState("");
+  const [totalScore, setTotalScore] = useState("");
+  const [startDate, setStartDate] = useState();
+  const [expiryDate, setExpiryDate] = useState();
+  const [startTime, setStartTime] = useState("");
+  const [expiryTime, setExpiryTime] = useState("");
   const [questions, setQuestions] = useState([]);
 
   useEffect(() => {
     if (initialTestData) {
-      setTestName(initialTestData.testName || '');
-      setTestDuration(initialTestData.testDuration || '');
-      setTotalScore(initialTestData.totalScore || '');
+      setTestName(initialTestData.testName || "");
+      setTestDuration(initialTestData.testDuration || "");
+      setTotalScore(initialTestData.totalScore || "");
+      setStartDate(initialTestData.startDate?.slice(0, 10) || ""),
+      setExpiryDate(initialTestData.expiryDate?.slice(0, 10) || ""),
+      setStartTime(initialTestData.startDate?.slice(11, 16) || ""),
+      setExpiryTime(initialTestData.expiryDate?.slice(11, 16) || ""),
       setQuestions(initialTestData.questions || []);
     }
   }, [initialTestData]);
 
+  console.log(initialTestData);
   const addQuestion = () => {
-    setQuestions(prev => [
+    setQuestions((prev) => [
       ...prev,
       {
-        question: '',
-        type: 'Multiple Choice',
-        options: ['', '', '', ''],
-        correctAnswer: '',
+        question: "",
+        type: "Multiple Choice",
+        options: ["", "", "", ""],
+        correctAnswer: "",
         score: 0,
-      }
+      },
     ]);
   };
 
   const deleteQuestion = (index) => {
-    setQuestions(prev => prev.filter((_, i) => i !== index));
+    setQuestions((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleQuestionChange = (index, field, value) => {
@@ -55,12 +66,15 @@ function UpdateTest({ initialTestData, onUpdate, onCancel }) {
   };
 
   const handleSubmit = () => {
-    if (!testName || !testDuration || !totalScore || questions.length === 0) {
-      alert('Please complete all fields and ensure at least one question is added.');
+    if (!testName || !testDuration || !totalScore || !startDate || !expiryDate || !startTime || !expiryTime || questions.length === 0) {
+      show({
+        message:
+          "Please complete all fields and ensure at least one question is added.",
+        type: "warning",
+      });
       return;
     }
-
-    const updatedTest = { testName, testDuration, totalScore, questions };
+    const updatedTest = { testName, testDuration, startDate, expiryDate, startTime,expiryTime, totalScore, questions };
     onUpdate(updatedTest);
   };
 
@@ -105,6 +119,54 @@ function UpdateTest({ initialTestData, onUpdate, onCancel }) {
             placeholder="e.g., 100"
             value={totalScore}
             onChange={(e) => setTotalScore(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="input-row">
+        <div className="input-group half-width">
+          <label htmlFor="startDate">
+            <FaCalendarAlt /> Start Date
+          </label>
+          <input
+            id="startDate"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+        </div>
+        <div className="input-group half-width">
+          <label htmlFor="expiryDate">
+            <FaCalendarAlt /> Expiry Date
+          </label>
+          <input
+            id="expiryDate"
+            type="date"
+            value={expiryDate}
+            onChange={(e) => setExpiryDate(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="input-row">
+        <div className="input-group half-width">
+          <label htmlFor="startTime">
+            <FaClock /> Start Time
+          </label>
+          <input
+            id="startTime"
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+          />
+        </div>
+        <div className="input-group half-width">
+          <label htmlFor="expiryTime">
+            <FaClock /> Expiry Time
+          </label>
+          <input
+            id="expiryTime"
+            type="time"
+            value={expiryTime}
+            onChange={(e) => setExpiryTime(e.target.value)}
           />
         </div>
       </div>
@@ -213,6 +275,7 @@ function UpdateTest({ initialTestData, onUpdate, onCancel }) {
           Cancel
         </button>
       </div>
+      <AlertPortal />
     </div>
   );
 }

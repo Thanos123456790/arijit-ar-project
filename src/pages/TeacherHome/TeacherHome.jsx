@@ -1,19 +1,28 @@
 import React, { useState, useEffect } from "react";
 import {
-  FaPlusCircle, FaEdit, FaTrashAlt, FaBook,
-  FaClock, FaClipboardList, FaUsers, FaClipboardCheck,
-  FaChartLine, FaBrain
+  FaPlusCircle,
+  FaEdit,
+  FaTrashAlt,
+  FaBook,
+  FaClock,
+  FaClipboardList,
+  FaUsers,
+  FaClipboardCheck,
+  FaChartLine,
+  FaBrain,
 } from "react-icons/fa";
 import "./TeacherHomePage.css";
 import UpdateTest from "../UpdateTest/UpdateTest";
 import Chatbot from "../Chatbot/Chatbot";
 import { useNavigate } from "react-router-dom";
-import * as XLSX from "xlsx";          // ← NEW
+import * as XLSX from "xlsx";
 import { FaDownload } from "react-icons/fa";
+import { useAlert } from "../../hooks/useAlert";
 
 const API = `${import.meta.env.VITE_API_URL}/tests`;
 
 const TeacherHomePage = () => {
+  const { show, AlertPortal } = useAlert();
   const [tests, setTests] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [selectedTestId, setSelectedTestId] = useState(null);
@@ -37,9 +46,9 @@ const TeacherHomePage = () => {
   };
 
   /* ----- add / change manual email fields -------------------- */
-  const addEmailField = () => setEmails(prev => [...prev, ""]);
+  const addEmailField = () => setEmails((prev) => [...prev, ""]);
   const changeEmail = (idx, val) =>
-    setEmails(prev => prev.map((e, i) => i === idx ? val : e));
+    setEmails((prev) => prev.map((e, i) => (i === idx ? val : e)));
 
   /* ----- Excel helpers -------------------------------------- */
   const handleExcelUpload = (e) => {
@@ -51,7 +60,9 @@ const TeacherHomePage = () => {
       const wb = XLSX.read(evt.target.result, { type: "binary" });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const arr = XLSX.utils.sheet_to_json(ws);
-      const list = arr.map(r => (r.Email || r.email || "").trim()).filter(Boolean);
+      const list = arr
+        .map((r) => (r.Email || r.email || "").trim())
+        .filter(Boolean);
       setExcel(list);
     };
     reader.readAsBinaryString(file);
@@ -66,19 +77,23 @@ const TeacherHomePage = () => {
 
   /* ----- submit assignment ---------------------------------- */
   const handlePopupSubmit = async () => {
-    const list = useExcel ? excelEmails : emails.map(e => e.trim()).filter(Boolean);
+    const list = useExcel
+      ? excelEmails
+      : emails.map((e) => e.trim()).filter(Boolean);
 
-    if (!list.length) return alert("No e-mails provided.");
+    if (!list.length)
+      return show({ message: "No emails provided", type: "error" });
 
     const payload = { emails: list };
     // console.log("all emails" + JSON.stringify(payload));
     const res = await fetch(`${API}/${selectedTestId}/assign`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
-      alert("Assigned!");
+      // alert("Assigned!");
+      show({ message: "Test assigned successfully", type: "success" });
       resetAssignPopup();
     }
   };
@@ -86,7 +101,9 @@ const TeacherHomePage = () => {
 
   useEffect(() => {
     const fetchTests = async () => {
-      const res = await fetch(`${API}/teacher-tests?teacherId=${currentUser._id}`);
+      const res = await fetch(
+        `${API}/teacher-tests?teacherId=${currentUser._id}`
+      );
       const data = await res.json();
       setTests(data);
     };
@@ -102,7 +119,7 @@ const TeacherHomePage = () => {
     setEditingTest({
       ...test,
       testName: test.name,
-      testDuration: test.duration
+      testDuration: test.duration,
     });
   };
 
@@ -110,12 +127,15 @@ const TeacherHomePage = () => {
     const res = await fetch(`${API}/${editingTest._id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated)
+      body: JSON.stringify(updated),
     });
     if (res.ok) {
       const newTest = await res.json();
-      setTests(prev => prev.map(t => (t._id === newTest._id ? newTest : t)));
-      alert("Test updated");
+      setTests((prev) =>
+        prev.map((t) => (t._id === newTest._id ? newTest : t))
+      );
+      // alert("Test updated");
+      show({ message: "Test updated successfully", type: "success" });
     }
     setEditingTest(null);
   };
@@ -128,25 +148,29 @@ const TeacherHomePage = () => {
   const confirmDelete = async () => {
     const res = await fetch(`${API}/${testToDelete._id}`, { method: "DELETE" });
     if (res.ok) {
-      setTests(prev => prev.filter(t => t._id !== testToDelete._id));
-      alert("Deleted");
+      setTests((prev) => prev.filter((t) => t._id !== testToDelete._id));
+      // alert("Deleted");
+      show({ message: "Test deleted successfully", type: "success" });
     }
     setShowDeletePopup(false);
     setTestToDelete(null);
   };
 
-  const handleViewResults = (id) => navigate(`/test-results-teacher?testId=${id}`);
-  const handleMannualEvaluation = (id) => navigate(`/manual-evaluation?testId=${id}`);
+  const handleViewResults = (id) =>
+    navigate(`/test-results-teacher?testId=${id}`);
+  const handleMannualEvaluation = (id) =>
+    navigate(`/manual-evaluation?testId=${id}`);
   const handleAIEvaluation = (id) => navigate(`/ai-evaluation?testId=${id}`);
   const navigateToCreateTest = () => navigate("/create-test");
 
   const totalAssignedClasses = tests.reduce(
-    (sum, t) => sum + t.assignedTo?.length, 0
+    (sum, t) => sum + t.assignedTo?.length,
+    0
   );
   const totalStudents = tests.reduce(
-    (sum, t) => sum + (t.studentsAttempted || 0), 0
+    (sum, t) => sum + (t.studentsAttempted || 0),
+    0
   );
-
 
   return (
     <div className="teacher-homepage">
@@ -214,7 +238,9 @@ const TeacherHomePage = () => {
               <p style={{ color: "black" }}>Total Score: {test.totalScore}</p>
               <p style={{ color: "black" }}>
                 Assigned To:&nbsp;
-                {test.assignedTo?.length ? `${test.assignedTo?.length} Candidates` : "None"}
+                {test.assignedTo?.length
+                  ? `${test.assignedTo?.length} Candidates`
+                  : "None"}
               </p>
               <div className="card-actions">
                 <button
@@ -282,32 +308,48 @@ const TeacherHomePage = () => {
                 <input
                   type="checkbox"
                   checked={useExcel}
-                  onChange={() => { setUseExcel(!useExcel); setExcel([]); }}
-                /> Upload via Excel
+                  onChange={() => {
+                    setUseExcel(!useExcel);
+                    setExcel([]);
+                  }}
+                />{" "}
+                Upload via Excel
               </label>
             </div>
 
             {useExcel ? (
               /* -- Excel section ---------------------------------- */
               <>
-                <input type="file" accept=".xlsx,.xls" onChange={handleExcelUpload} />
-                <button className="secondary-btn" style={{ marginTop: 6 }}
-                  onClick={downloadSampleExcel}>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleExcelUpload}
+                />
+                <button
+                  className="secondary-btn"
+                  style={{ marginTop: 6 }}
+                  onClick={downloadSampleExcel}
+                >
                   <FaDownload /> Sample
                 </button>
                 <p style={{ fontSize: 12, marginTop: 6 }}>
-                  {excelEmails.length ? `Loaded ${excelEmails.length} emails.` : "Expecting column 'Email'"}
+                  {excelEmails.length
+                    ? `Loaded ${excelEmails.length} emails.`
+                    : "Expecting column 'Email'"}
                 </p>
               </>
             ) : (
               /* -- Manual email inputs ----------------------------- */
               <>
                 {emails.map((val, idx) => (
-                  <input key={idx}
-                    type="email" placeholder="user@example.com"
+                  <input
+                    key={idx}
+                    type="email"
+                    placeholder="user@example.com"
                     value={val}
-                    onChange={e => changeEmail(idx, e.target.value)}
-                    style={{ marginBottom: 6 }} />
+                    onChange={(e) => changeEmail(idx, e.target.value)}
+                    style={{ marginBottom: 6 }}
+                  />
                 ))}
                 <button className="primary-btn" onClick={addEmailField}>
                   + Add another
@@ -316,11 +358,16 @@ const TeacherHomePage = () => {
             )}
 
             <div className="popup-actions" style={{ marginTop: 12 }}>
-              <button className="btn-secondary" onClick={resetAssignPopup}>Cancel</button>
-              <button className="btn-success" onClick={handlePopupSubmit}>Submit</button>
+              <button className="btn-secondary" onClick={resetAssignPopup}>
+                Cancel
+              </button>
+              <button className="btn-success" onClick={handlePopupSubmit}>
+                Submit
+              </button>
             </div>
           </div>
-        </div>)}
+        </div>
+      )}
 
       {/* Delete Confirmation Popup */}
       {showDeletePopup && (
@@ -332,7 +379,10 @@ const TeacherHomePage = () => {
               <strong>{testToDelete.name}</strong>?
             </p>
             <div className="popup-actions">
-              <button className="btn-secondary" onClick={() => setShowDeletePopup(false)}>
+              <button
+                className="btn-secondary"
+                onClick={() => setShowDeletePopup(false)}
+              >
                 Cancel
               </button>
               <button className="btn-danger" onClick={confirmDelete}>
@@ -355,6 +405,7 @@ const TeacherHomePage = () => {
       )}
 
       <Chatbot />
+      <AlertPortal />
     </div>
   );
 };

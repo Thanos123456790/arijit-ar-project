@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { FaCheck, FaArrowRight, FaRobot, FaBackward } from 'react-icons/fa';
-import './AiEvaluation.css'; // Using same styling
-import Chatbot from '../Chatbot/Chatbot';
-
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { FaCheck, FaArrowRight, FaRobot, FaBackward } from "react-icons/fa";
+import "./AiEvaluation.css";
+import Chatbot from "../Chatbot/Chatbot";
+import { useAlert } from "../../hooks/useAlert";
+import "../../hooks/alert.css";
 
 const API = `${import.meta.env.VITE_API_URL}`;
 
@@ -15,12 +16,16 @@ function AIEvaluation() {
   const [scores, setScores] = useState({});
   const [comms, setComms] = useState({});
   const [loading, setLoad] = useState(true);
+  const { show, AlertPortal } = useAlert();
 
   /* ─── fetch submissions once ───────────── */
   useEffect(() => {
     fetch(`${API}/submissions/test/${testId}`)
-      .then(r => r.json())
-      .then((data) => { setSubs(data); setLoad(false); })
+      .then((r) => r.json())
+      .then((data) => {
+        setSubs(data);
+        setLoad(false);
+      })
       .catch(console.error);
   }, [testId]);
 
@@ -33,7 +38,7 @@ function AIEvaluation() {
   const setComment = (qIdx, val) => setComms({ ...comms, [qIdx]: val });
 
   const saveEval = async () => {
-    const updates = Object.keys(scores).map(k => ({
+    const updates = Object.keys(scores).map((k) => ({
       idx: Number(k),
       teacherScore: Number(scores[k]),
       teacherComment: comms[k] || "",
@@ -43,7 +48,10 @@ function AIEvaluation() {
     for (const { idx, teacherScore } of updates) {
       const max = sub.evaluatedQuestions[idx].score;
       if (teacherScore > max || teacherScore < 0) {
-        return alert(`Score for Q${idx + 1} must be between 0 and ${max}`);
+        return show({
+          message: `Score for Q${idx + 1} must be between 0 and ${max}`,
+          type: "error",
+        });
       }
     }
 
@@ -55,65 +63,101 @@ function AIEvaluation() {
 
     if (!res.ok) {
       const err = await res.json();
-      return alert(err.error || "Save failed");
+      return show({ message: err.error || "Save failed", type: "error" });
     }
 
     const { submission } = await res.json();
-    setSubs(prev => prev.map((s, i) => (i === idx ? submission : s)));
+    setSubs((prev) => prev.map((s, i) => (i === idx ? submission : s)));
     setScores({});
     setComms({});
-    alert("Saved!");
+    show({ message: "Saved!", type: "success" });
   };
-
 
   /* ─── next submission ───────────────────── */
   const next = () => {
-    if (idx < subs.length - 1) { setIdx(idx + 1); setScores({}); setComms({}); }
-    else alert("All submissions evaluated.");
+    if (idx < subs.length - 1) {
+      setIdx(idx + 1);
+      setScores({});
+      setComms({});
+    } else show({ message: "All submissions evaluated.", type: "info" });
   };
 
   /* ─── quick AI evaluation (front-end mock) ─ */
-  const aiEval = () => {
+  const aiEval = async () => {
     if (!sub) return;
-    const aiS = {}, aiC = {};
-    sub.evaluatedQuestions.forEach((q, i) => {
-      const ans = q.studentAnswer?.toLowerCase() || "";
-      const corr = q.correctAnswer?.toLowerCase() || "";
-      const max = q.score;
-      if (!ans) { aiS[i] = 0; aiC[i] = "No answer"; }
-      else if (ans === corr) { aiS[i] = max; aiC[i] = "Exact"; }
-      else if (ans.includes(corr.split(" ")[0])) { aiS[i] = Math.floor(max / 2); aiC[i] = "Partial"; }
-      else { aiS[i] = 0; aiC[i] = "Wrong"; }
-    });
-    setScores(aiS); setComms(aiC);
+
+    try {
+      const res = await fetch(`${API}/ai/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questions: sub.evaluatedQuestions }),
+      });
+
+      const data = await res.json();
+
+      const aiS = {}, aiC = {};
+      data.forEach((res, i) => {
+        aiS[i] = res.score;
+        aiC[i] = res.comment;
+      });
+
+      setScores(aiS);
+      setComms(aiC);
+    } catch (err) {
+      show({ message: "AI evaluation failed", type: "error" });
+      console.error(err);
+    }
   };
+
 
   /* ─── render guards ─────────────────────── */
   if (loading) return <p className="loading">Loading…</p>;
   if (!subs.length) return <p>No submissions.</p>;
 
-
   return (
     <div className="manual-evaluation-container">
       <header className="evaluation-header">
-        <h4 style={{ paddingBottom: '6px' }}>AI Evaluation Portal</h4>
-        <p style={{ fontSize: '14px', display: 'flex', justifyContent: 'center', gap: '20px' }}>
-          <span><strong>Test ID:</strong> {sub.testId}</span>
-          <span><strong>Total Score:</strong> {sub.totalScore}</span>
-          <span><strong>Obtained:</strong> {sub.obtainedScore}</span>
-          <span><strong>%:</strong> {sub.percentage}</span>
-          <span><strong>Student Name:</strong> {sub.studentName}</span>
+        <h4 style={{ paddingBottom: "6px" }}>AI Evaluation Portal</h4>
+        <p
+          style={{
+            fontSize: "14px",
+            display: "flex",
+            justifyContent: "center",
+            gap: "20px",
+          }}
+        >
+          <span>
+            <strong>Test ID:</strong> {sub.testId}
+          </span>
+          <span>
+            <strong>Total Score:</strong> {sub.totalScore}
+          </span>
+          <span>
+            <strong>Obtained:</strong> {sub.obtainedScore}
+          </span>
+          <span>
+            <strong>%:</strong> {sub.percentage}
+          </span>
+          <span>
+            <strong>Student Name:</strong> {sub.studentName}
+          </span>
           {/* <span><strong>Roll Number:</strong> {sub.student.rollNumber}</span> */}
         </p>
       </header>
-
       <div className="evaluation-body">
         <div className="questions-list">
           {sub.evaluatedQuestions.map((q, i) => (
             <div className="question-card" key={i}>
-              <h4>Question {i + 1}: {q.question}</h4>
-              <p><strong>Student Answer:</strong> {q.studentAnswer || 'Not Answered'}</p>
-              <p><strong>Correct Answer:</strong> {q.correctAnswer}</p>
+              <h4>
+                Question {i + 1}: {q.question}
+              </h4>
+              <p>
+                <strong>Student Answer:</strong>{" "}
+                {q.studentAnswer || "Not Answered"}
+              </p>
+              <p>
+                <strong>Correct Answer:</strong> {q.correctAnswer}
+              </p>
 
               <div className="input-group">
                 <label>Score:</label>
@@ -121,8 +165,8 @@ function AIEvaluation() {
                   type="number"
                   min="0"
                   max={q.score}
-                  value={scores[i] || ''}
-                  onChange={e => setScore(i, e.target.value)}
+                  value={scores[i] || ""}
+                  onChange={(e) => setScore(i, e.target.value)}
                   placeholder="Enter score"
                 />
               </div>
@@ -131,17 +175,18 @@ function AIEvaluation() {
                 <textarea
                   rows="2"
                   placeholder="Add a comment (optional)"
-                  value={comms[i] || ''}
-                  onChange={e => setComment(i, e.target.value)}
+                  value={comms[i] || ""}
+                  onChange={(e) => setComment(i, e.target.value)}
                 />
               </div>
             </div>
           ))}
         </div>
       </div>
-
       <footer className="evaluation-actions">
-        <button className="back-btn" onClick={() => navigate(-1)}><FaBackward /> Back</button>
+        <button className="back-btn" onClick={() => navigate(-1)}>
+          <FaBackward /> Back
+        </button>
         <button className="save-btn" onClick={saveEval}>
           Save Evaluation <FaCheck />
         </button>
@@ -150,14 +195,14 @@ function AIEvaluation() {
         </button>
         <button
           className="next-btn"
-          style={{ backgroundColor: '#28a745' }}
+          style={{ backgroundColor: "#28a745" }}
           onClick={aiEval}
         >
           Evaluate with AI <FaRobot />
         </button>
       </footer>
-
       <Chatbot />
+      <AlertPortal /> {/* <-- 🔥 This is what was missing */}
     </div>
   );
 }

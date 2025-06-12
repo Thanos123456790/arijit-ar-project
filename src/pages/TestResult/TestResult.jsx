@@ -136,6 +136,7 @@ Percentage    : ${testResult.percentage}%
               <p><strong>Student Answer:</strong> {q.studentAnswer}</p>
               <p><strong>Correct Answer:</strong> {q.correctAnswer}</p>
               <p><strong>Score:</strong> {q.obtained}/{q.score}</p>
+              <p><strong>Teacher Commernt:</strong> {q.teacherComment}</p>
             </div>
           ))}
         </div>

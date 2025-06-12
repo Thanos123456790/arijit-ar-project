@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { FaCamera, FaClock, FaFileAlt } from "react-icons/fa";
 import "./TakeTest.css";
 import { useLocation } from "react-router-dom";
+import { useAlert } from "../../hooks/useAlert";
 
 // ────────────────────────────────────────────────────────────────────────────
 // ENDPOINTS
@@ -10,6 +11,7 @@ const API = `${import.meta.env.VITE_API_URL}/tests`;
 const CHEATAPI = `${import.meta.env.VITE_API_URL}/cheating`;
 
 export default function TakeTest() {
+  const { show, AlertPortal } = useAlert();
   const { search } = useLocation();
   const testId = new URLSearchParams(search).get("testId");
 
@@ -52,11 +54,14 @@ export default function TakeTest() {
     if (pendingSaveRef.current) return;
     pendingSaveRef.current = true;
     requestAnimationFrame(() => {
-      sessionStorage.setItem(storageKey(), JSON.stringify({
-        answers: answersRef.current,
-        timer,
-        warnings
-      }));
+      sessionStorage.setItem(
+        storageKey(),
+        JSON.stringify({
+          answers: answersRef.current,
+          timer,
+          warnings,
+        })
+      );
       pendingSaveRef.current = false;
     });
   }
@@ -76,7 +81,7 @@ export default function TakeTest() {
       setTest(data);
 
       // Initialise timer only the first time (respecting persisted state)
-      setTimer((old) => (getPersisted().timer ?? (parseInt(data.duration) * 60)));
+      setTimer((old) => getPersisted().timer ?? parseInt(data.duration) * 60);
     })();
   }, [testId]);
 
@@ -109,12 +114,17 @@ export default function TakeTest() {
         streamRef.current = stream;
         setCamReady(true);
         // Enter fullscreen (some browsers may reject silently)
-        document.documentElement.requestFullscreen?.().catch(() => { });
+        document.documentElement.requestFullscreen?.().catch(() => {});
         // Detect camera loss
-        stream.getVideoTracks()[0].onended = () => handleViolation("camera-off");
+        stream.getVideoTracks()[0].onended = () =>
+          handleViolation("camera-off");
       })
       .catch(() => {
-        alert("Camera permission denied. Enable camera to start the exam.");
+        // alert("Camera permission denied. Enable camera to start the exam.");
+        show({
+          message: "Camera permission denied. Enable camera to start the exam.",
+          type: "error",
+        });
       });
 
     return stopCamera;
@@ -137,7 +147,11 @@ export default function TakeTest() {
     };
 
     const onFull = () => {
-      if (!document.fullscreenElement && fullWarned.current && !hasSubmittedRef.current) {
+      if (
+        !document.fullscreenElement &&
+        fullWarned.current &&
+        !hasSubmittedRef.current
+      ) {
         handleViolation("fullscreen-exit");
       }
       fullWarned.current = true;
@@ -153,12 +167,13 @@ export default function TakeTest() {
     };
 
     const cheatKeys = (e) => {
-      const combo = (
+      const combo =
         (e.ctrlKey && ["c", "x", "v", "C", "X", "V"].includes(e.key)) ||
         e.key === "F12" ||
-        (e.ctrlKey && e.shiftKey && ["I", "i", "C", "c", "J", "j"].includes(e.key)) ||
-        e.key === "Escape"
-      );
+        (e.ctrlKey &&
+          e.shiftKey &&
+          ["I", "i", "C", "c", "J", "j"].includes(e.key)) ||
+        e.key === "Escape";
       if (combo && !hasSubmittedRef.current) {
         e.preventDefault();
         handleViolation("cheat-key");
@@ -192,10 +207,20 @@ export default function TakeTest() {
   const handleViolation = (eventType) => {
     setWarnings((w) => {
       const next = w + 1;
-      alert(
-        `Warning ${next}/3: ${eventType.replace(/-/g, " ")} detected.\n` +
-        (next === 3 ? "Next violation will terminate the exam." : "Stay focused on the exam."),
-      );
+      // alert(
+      //   `Warning ${next}/3: ${eventType.replace(/-/g, " ")} detected.\n` +
+      //     (next === 3
+      //       ? "Next violation will terminate the exam."
+      //       : "Stay focused on the exam.")
+      // );
+      show({
+        message:
+          `Warning ${next}/3: ${eventType.replace(/-/g, " ")} detected.\n` +
+          (next === 3
+            ? "Next violation will terminate the exam."
+            : "Stay focused on the exam."),
+        type: "warning",
+      });
 
       if (next >= 4) terminateExam(eventType);
       return next;
@@ -214,7 +239,11 @@ export default function TakeTest() {
         event: eventType,
       }),
     });
-    alert("Exam terminated due to repeated violations.");
+    // alert("Exam terminated due to repeated violations.");
+    show({
+      message: "Exam terminated due to repeated violations",
+      type: "error",
+    });
     window.location.href = "/student-home";
   };
 
@@ -227,7 +256,10 @@ export default function TakeTest() {
   };
 
   const formatTime = (s) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(
+      2,
+      "0"
+    )}`;
 
   const handleCancel = () => {
     stopCamera();
@@ -252,23 +284,25 @@ export default function TakeTest() {
       });
 
       if (res.ok) {
-        alert("Test submitted and evaluated!");
+        // alert("Test submitted and evaluated!");
+        show({ message: "Test submitted and evaluated!", type: "success" });
         sessionStorage.removeItem(storageKey()); // Clean up persisted state
         window.location.href = "/student-home";
       } else {
         const err = await res.json();
-        alert(err.msg || "Submission failed");
+        // alert(err.msg || "Submission failed");
+        show({ message: err.msg || "Submission failed", type: "error" });
       }
     } catch (e) {
       console.error(e);
-      alert("Server error during submission");
-    }finally{
+      // alert("Server error during submission");
+      show({ message: "Server error during submission", type: "error" });
+    } finally {
       stopCamera();
       sessionStorage.removeItem(storageKey());
       window.location.href = "/student-home";
     }
   };
-
 
   if (!test) return <p>Loading…</p>;
   const isTimeCritical = timer < 5 * 60;
@@ -325,7 +359,9 @@ export default function TakeTest() {
                           name={`question-${index}`}
                           value={option}
                           checked={answers[index] === option}
-                          onChange={(e) => handleAnswerChange(index, e.target.value)}
+                          onChange={(e) =>
+                            handleAnswerChange(index, e.target.value)
+                          }
                         />
                         <p style={{ color: "black" }}>{option}</p>
                       </label>
@@ -346,7 +382,9 @@ export default function TakeTest() {
                           name={`question-${index}`}
                           value={option}
                           checked={answers[index] === option}
-                          onChange={(e) => handleAnswerChange(index, e.target.value)}
+                          onChange={(e) =>
+                            handleAnswerChange(index, e.target.value)
+                          }
                         />
                         <p style={{ color: "black" }}>{option}</p>
                       </label>
@@ -395,6 +433,7 @@ export default function TakeTest() {
           </p>
         )}
       </div>
+      <AlertPortal />
     </div>
   );
 }

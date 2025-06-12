@@ -1,9 +1,12 @@
 import { useState } from "react";
 import "./Login.css";
 import { useNavigate } from "react-router-dom";
+import { useAlert } from "../../hooks/useAlert";
+
 const API = `${import.meta.env.VITE_API_URL}`;
 
 function Login() {
+  const { show, AlertPortal } = useAlert();
   const [isSignUp, setIsSignUp] = useState(false);
   const [role, setRole] = useState("student");
   const [name, setName] = useState("");
@@ -23,15 +26,16 @@ function Login() {
   const validateEmail = (email) => /\S+@\S+\.\S+/.test(email);
   const validatePhone = (phone) => phone.length === 10 && !isNaN(phone);
 
-
   const handleLogin = async () => {
     if (!email || !password) {
-      alert("Email and password are required.");
+      // alert("Email and password are required.");
+      show({ message: "Email and password are required.", type: "warning" });
       return;
     }
 
     if (!validateEmail(email)) {
-      alert("Please enter a valid email.");
+      // alert("Please enter a valid email.");
+      show({ message: "Please enter a valid email.", type: "warning" });
       return;
     }
 
@@ -39,15 +43,16 @@ function Login() {
       const res = await fetch(`${API}/auth/login`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password, role })
+        body: JSON.stringify({ email, password, role }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || "Login failed.");
+        // alert(data.message || "Login failed.");
+        show({ message: data.message || "Login failed.", type: "error" });
         return;
       }
 
@@ -63,33 +68,42 @@ function Login() {
       }
     } catch (err) {
       console.error(err);
-      alert("An error occurred during login.");
+      // alert("An error occurred during login.");
+      show({ message: "An error occurred during login.", type: "error" });
     }
   };
 
   const handleSignUp = async () => {
     if (!name || !email || !phone || !password || !confirmPassword) {
-      alert("Please fill in all required fields.");
+      // alert("Please fill in all required fields.");
+      show({ message: "Please fill in all required fields.", type: "warning" });
       return;
     }
 
     if (!validateEmail(email)) {
-      alert("Please enter a valid email.");
+      // alert("Please enter a valid email.");
+      show({ message: "Please enter a valid email.", type: "warning" });
       return;
     }
 
     if (!validatePhone(phone)) {
-      alert("Phone number must be 10 digits.");
+      // alert("Phone number must be 10 digits.");
+      show({ message: "Phone number must be 10 digits.", type: "warning" });
       return;
     }
 
     if (password.length < 6) {
-      alert("Password should be at least 6 characters.");
+      // alert("Password should be at least 6 characters.");
+      show({
+        message: "Password should be at least 6 characters.",
+        type: "warning",
+      });
       return;
     }
 
     if (password !== confirmPassword) {
-      alert("Passwords do not match.");
+      // alert("Passwords do not match.");
+      show({ message: "Passwords do not match.", type: "warning" });
       return;
     }
 
@@ -98,12 +112,13 @@ function Login() {
       email,
       phone,
       password,
-      role
+      role,
     };
 
     if (role === "student") {
       if (!rollNumber || !branch || !semester) {
-        alert("All student fields are required.");
+        // alert("All student fields are required.");
+        show({ message: "All student fields are required.", type: "warning" });
         return;
       }
 
@@ -111,13 +126,14 @@ function Login() {
         ...newUser,
         rollNumber,
         branch,
-        semester
+        semester,
       };
     }
 
     if (role === "teacher") {
       if (!employeeId || !department || !designation) {
-        alert("All teacher fields are required.");
+        // alert("All teacher fields are required.");
+        show({ message: "All teacher fields are required. ", type: "warning" });
         return;
       }
 
@@ -125,7 +141,7 @@ function Login() {
         ...newUser,
         employeeId,
         department,
-        designation
+        designation,
       };
     }
 
@@ -133,27 +149,35 @@ function Login() {
       const res = await fetch(`${API}/auth/register`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(newUser)
+        body: JSON.stringify(newUser),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.message || "Registration failed.");
+        // alert(data.message || "Registration failed.");
+        show({
+          message: data.message || "Registration failed.",
+          type: "error",
+        });
         return;
       }
-      const existingUsers = JSON.parse(sessionStorage.getItem("currentUser")) || [];
+      const existingUsers =
+        JSON.parse(sessionStorage.getItem("currentUser")) || [];
       existingUsers.push(newUser);
       sessionStorage.setItem("currentUser", JSON.stringify(existingUsers));
-      alert("User registered successfully!");
+      // alert("User registered successfully!");
+      show({ message: "User registered successfully!", type: "success" });
       setIsSignUp(false);
     } catch (err) {
       console.error(err);
-      alert("An error occurred during registration.");
+      // alert("An error occurred during registration.");
+      show({
+        message: "An error occurred during registration.",
+        type: "error",
+      });
     }
-
-
   };
 
   return (
@@ -161,7 +185,9 @@ function Login() {
       <div className="form-box">
         {!isSignUp && (
           <div className="watermark">
-            <p style={{ color: "black" }}>Exam Handling System</p>
+            <p style={{ color: "black" }}>
+              Secure Exam Handling <br /> & Encrtpted Storage System
+            </p>
             <p>Asansol Engineering College</p>
             <p>Computer Science and Engineering</p>
           </div>
@@ -301,6 +327,7 @@ function Login() {
           </p>
         )}
       </div>
+      <AlertPortal />
     </div>
   );
 }

@@ -7,16 +7,25 @@ import {
   FaFileAlt,
   FaClipboardList,
   FaDownload,
+  FaCalendarAlt
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import "./CreateTest.css";
 import { useNavigate } from "react-router-dom";
+import { useAlert } from "../../hooks/useAlert";
 
 const API = `${import.meta.env.VITE_API_URL}`;
 
-
 function CreateTest() {
+  const { show, AlertPortal } = useAlert();
   const [data, setData] = useState({});
+  const [expiryDate, setExpiryDate] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [expiryTime, setExpiryTime] = useState("");
+
+
+
   useEffect(() => {
     const user = sessionStorage.getItem("currentUser");
     setData(user ? JSON.parse(user) : {});
@@ -111,7 +120,23 @@ function CreateTest() {
 
   const handleSubmit = async () => {
     if (!testName || !testDuration || !totalScore || questions.length === 0) {
-      alert("Please complete all fields and add at least one question.");
+      show({
+        message: "Please fill all fields and add at least one question.",
+        type: "error",
+      });
+      return;
+    }
+
+    const calculatedScore = questions.reduce(
+      (sum, q) => sum + Number(q.score || 0),
+      0
+    );
+
+    if (calculatedScore !== Number(totalScore)) {
+      show({
+        message: `Total score mismatch. You've set ${totalScore}, but the sum of all question scores is ${calculatedScore}.`,
+        type: "error",
+      });
       return;
     }
 
@@ -121,6 +146,10 @@ function CreateTest() {
       duration: testDuration,
       totalScore: parseInt(totalScore),
       evaluationType,
+      startDate,
+      expiryDate,
+      startTime,
+      expiryTime,
       questions,
     };
 
@@ -132,20 +161,27 @@ function CreateTest() {
       });
 
       if (res.ok) {
-        alert("Test submitted successfully!");
+        show({ message: "Test created successfully!", type: "success" });
         navigate("/teacher-home");
       } else {
         const err = await res.json();
-        alert(`Failed to submit test: ${err.message || "Unknown error"}`);
+        // alert(`Failed to submit test: ${err.message || "Unknown error"}`);
+        show({
+          message: `Failed to submit test: ${err.message || "Unknown error"}`,
+          type: "error",
+        });
       }
     } catch (error) {
       console.error("Error submitting test:", error);
-      alert("Server error while submitting test.");
+      // alert("Server error while submitting test.");
+      show({
+        message: "Server error while submitting test.",
+        type: "error",
+      });
     }
   };
 
   const handleCancel = () => navigate("/teacher-home");
-
 
   return (
     <div className="create-test-page">
@@ -210,6 +246,54 @@ function CreateTest() {
                 value={totalScore}
                 onChange={(e) => setTotalScore(e.target.value)}
               />
+            </div>
+            <div className="input-row">
+              <div className="input-group half-width">
+                <label htmlFor="startDate">
+                  <FaCalendarAlt /> Start Date
+                </label>
+                <input
+                  id="startDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="input-group half-width">
+                <label htmlFor="expiryDate">
+                  <FaCalendarAlt /> Expiry Date
+                </label>
+                <input
+                  id="expiryDate"
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                />
+              </div>
+              <div className="input-row">
+                <div className="input-group half-width">
+                  <label htmlFor="startTime">
+                    <FaClock /> Start Time
+                  </label>
+                  <input
+                    id="startTime"
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
+                </div>
+                <div className="input-group half-width">
+                  <label htmlFor="expiryTime">
+                    <FaClock /> Expiry Time
+                  </label>
+                  <input
+                    id="expiryTime"
+                    type="time"
+                    value={expiryTime}
+                    onChange={(e) => setExpiryTime(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -372,6 +456,7 @@ function CreateTest() {
         </div>
       </div>
       <br />
+      <AlertPortal />
     </div>
   );
 }

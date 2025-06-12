@@ -3,13 +3,14 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { FaCheck, FaArrowRight, FaBackward } from "react-icons/fa";
 import "./ManualEvaluation.css";
 import Chatbot from "../Chatbot/Chatbot";
+import { useAlert } from "../../hooks/useAlert";
 
 const API = `${import.meta.env.VITE_API_URL}`;
 
 export default function ManualEvaluation() {
   const testId = new URLSearchParams(useLocation().search).get("testId");
   const navigate = useNavigate();
-
+  const { show, AlertPortal } = useAlert();
   const [subs, setSubs] = useState([]);
   const [idx, setIdx] = useState(0);
   const [scores, setScores] = useState({});
@@ -20,12 +21,12 @@ export default function ManualEvaluation() {
   useEffect(() => {
     setLoading(true);
     fetch(`${API}/submissions/test/${testId}`)
-      .then(r => r.json())
-      .then(data => {
+      .then((r) => r.json())
+      .then((data) => {
         setSubs(data);
         setLoading(false);
       })
-      .catch(err => {
+      .catch((err) => {
         console.error(err);
         setLoading(false);
       });
@@ -51,21 +52,19 @@ export default function ManualEvaluation() {
 
   /* ─── handlers ─── */
   const handleScore = (qIdx, val) =>
-    setScores(prev => ({ ...prev, [qIdx]: val }));
+    setScores((prev) => ({ ...prev, [qIdx]: val }));
   const handleComment = (qIdx, val) =>
-    setComms(prev => ({ ...prev, [qIdx]: val }));
+    setComms((prev) => ({ ...prev, [qIdx]: val }));
 
   /* ─── save current submission ─── */
   const save = async () => {
     // Build a unified list of question indices touched by either scores or comments
-    const keys = new Set([
-      ...Object.keys(scores),
-      ...Object.keys(comms)
-    ]);
+    const keys = new Set([...Object.keys(scores), ...Object.keys(comms)]);
 
-    if (!keys.size) return alert("Nothing to save.");
+    if (!keys.size)
+      return show({ message: "No changes to save.", type: "info" });
 
-    const updates = [...keys].map(k => {
+    const updates = [...keys].map((k) => {
       const i = Number(k);
       const current = sub.evaluatedQuestions[i] || {};
       return {
@@ -73,7 +72,7 @@ export default function ManualEvaluation() {
         teacherScore:
           scores[k] !== undefined ? Number(scores[k]) : current.teacherScore,
         teacherComment:
-          comms[k] !== undefined ? comms[k] : current.teacherComment || ""
+          comms[k] !== undefined ? comms[k] : current.teacherComment || "",
       };
     });
 
@@ -81,7 +80,10 @@ export default function ManualEvaluation() {
     for (const { idx: qIdx, teacherScore } of updates) {
       const max = sub.evaluatedQuestions[qIdx].score;
       if (teacherScore > max || teacherScore < 0) {
-        return alert(`Score for Q${qIdx + 1} must be between 0 and ${max}`);
+        return show({
+          message: `Invalid score for Q${qIdx + 1} (0-${max})`,
+          type: "error",
+        });
       }
     }
 
@@ -89,20 +91,20 @@ export default function ManualEvaluation() {
       const res = await fetch(`${API}/submissions/${sub._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questions: updates })
+        body: JSON.stringify({ questions: updates }),
       });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        return alert(err.error || "Save failed");
+        return show({ message: err.message || "Save failed", type: "error" });
       }
 
       const { submission } = await res.json();
-      setSubs(prev => prev.map((s, i) => (i === idx ? submission : s)));
-      alert("Saved!");
+      setSubs((prev) => prev.map((s, i) => (i === idx ? submission : s)));
+      show({ message: "Saved successfully!", type: "success" });
     } catch (err) {
       console.error(err);
-      alert("Save failed");
+      show({ message: "An error occurred while saving.", type: "error" });
     }
   };
 
@@ -110,7 +112,8 @@ export default function ManualEvaluation() {
     if (idx < subs.length - 1) {
       setIdx(idx + 1);
     } else {
-      alert("All submissions evaluated.");
+      // alert("All submissions evaluated.");
+      show({ message: "All submissions evaluated.", type: "info" });
     }
   };
 
@@ -120,34 +123,48 @@ export default function ManualEvaluation() {
       <header className="evaluation-header">
         <h4>Manual Evaluation Portal</h4>
         <p className="sub-info">
-          <span><strong>TestId:</strong> {sub.testId}</span>
-          <span><strong>Total:</strong> {sub.totalScore}</span>
-          <span><strong>Student:</strong> {sub.studentName}</span>
+          <span>
+            <strong>TestId:</strong> {sub.testId}
+          </span>
+          <span>
+            <strong>Total:</strong> {sub.totalScore}
+          </span>
+          <span>
+            <strong>Student:</strong> {sub.studentName}
+          </span>
         </p>
       </header>
 
       <div className="evaluation-body">
         {sub.evaluatedQuestions.map((q, i) => (
           <div className="question-card" key={i}>
-            <h4>Q{i + 1}: {q.question}</h4>
-            <p><strong>Answer:</strong> {q.studentAnswer || "—"}</p>
-            <p><strong>Correct:</strong> {q.correctAnswer}</p>
+            <h4>
+              Q{i + 1}: {q.question}
+            </h4>
+            <p>
+              <strong>Answer:</strong> {q.studentAnswer || "—"}
+            </p>
+            <p>
+              <strong>Correct:</strong> {q.correctAnswer}
+            </p>
 
-            <label>Score:
+            <label>
+              Score:
               <input
                 type="number"
                 min="0"
                 max={q.score}
                 value={scores[i] ?? ""}
-                onChange={e => handleScore(i, e.target.value)}
+                onChange={(e) => handleScore(i, e.target.value)}
               />
             </label>
 
-            <label>Comment:
+            <label>
+              Comment:
               <textarea
                 rows="2"
                 value={comms[i] ?? ""}
-                onChange={e => handleComment(i, e.target.value)}
+                onChange={(e) => handleComment(i, e.target.value)}
               />
             </label>
           </div>
@@ -173,6 +190,7 @@ export default function ManualEvaluation() {
       </footer>
 
       <Chatbot />
+      <AlertPortal />
     </div>
   );
 }

@@ -4,16 +4,20 @@ import CloseIcon from "@mui/icons-material/Close";
 import { IconButton } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import "./WebChat.css";
+import { useAlert } from "../../hooks/useAlert";
 
 const API = `${import.meta.env.VITE_API_URL}/chats`;
 
 const WebChat = () => {
+  const { show, AlertPortal } = useAlert();
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [department, setDept] = useState("");
   const [semester, setSem] = useState("");
   const [search, setSearch] = useState("");
-  const [currentUser] = useState(JSON.parse(sessionStorage.getItem("currentUser")));
+  const [currentUser] = useState(
+    JSON.parse(sessionStorage.getItem("currentUser"))
+  );
   const chatEndRef = useRef(null);
   const navigate = useNavigate();
 
@@ -27,28 +31,29 @@ const WebChat = () => {
     setMessages(data);
   };
 
-  useEffect(() => { fetchMessages(); }, [department, semester]);
   useEffect(() => {
-  let controller = new AbortController();
-  let timeout;
+    fetchMessages();
+  }, [department, semester]);
+  useEffect(() => {
+    let controller = new AbortController();
+    let timeout;
 
-  const fetchAndSchedule = async () => {
-    try {
-      await fetchMessages();
-      timeout = setTimeout(fetchAndSchedule, 3000); // 3 seconds
-    } catch (err) {
-      console.error("Error fetching messages:", err);
-    }
-  };
+    const fetchAndSchedule = async () => {
+      try {
+        await fetchMessages();
+        timeout = setTimeout(fetchAndSchedule, 3000); // 3 seconds
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+      }
+    };
 
-  fetchAndSchedule();
+    fetchAndSchedule();
 
-  return () => {
-    controller.abort();
-    clearTimeout(timeout);
-  };
-}, [department, semester]);
-
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [department, semester]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -58,19 +63,22 @@ const WebChat = () => {
   const send = async () => {
     if (!message.trim()) return;
     if (!department || !semester) {
-      alert("Select department & semester first."); return;
+      // alert("Select department & semester first.");
+      show("Select department and semester first.", "error");
+      return;
     }
     const payload = {
       text: message,
       senderId: currentUser._id,
       senderName: currentUser.name,
       role: currentUser.role,
-      department, semester
+      department,
+      semester,
     };
     const res = await fetch(API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       setMessage("");
@@ -93,16 +101,18 @@ const WebChat = () => {
   }, {});
 
   const closeChat = () =>
-    navigate(currentUser.role === "student" ? "/student-home" : "/teacher-home");
+    navigate(
+      currentUser.role === "student" ? "/student-home" : "/teacher-home"
+    );
 
   return (
     <div className="chat-container">
       <header className="chat-header">
         <h3>💬 EMS Integrated Chat</h3>
-
         <IconButton style={{ width: "unset" }} onClick={closeChat}>
-          <CloseIcon sx={{ color: 'white' }} />
-        </IconButton>      </header>
+          <CloseIcon sx={{ color: "white" }} />
+        </IconButton>{" "}
+      </header>
 
       <div className="chat-controls">
         <select value={department} onChange={(e) => setDept(e.target.value)}>
@@ -126,21 +136,33 @@ const WebChat = () => {
       </div>
 
       <main className="chat-messages">
-        {Object.entries(grouped).map(([date,msgs])=>(
+        {Object.entries(grouped).map(([date, msgs]) => (
           <div key={date}>
             <div className="date-divider">{date}</div>
-            {msgs.map(m=>(
-              <div key={m._id} className={`message-card ${m.role==="teacher"?"teacher-msg":"student-msg"}`}>
+            {msgs.map((m) => (
+              <div
+                key={m._id}
+                className={`message-card ${
+                  m.role === "teacher" ? "teacher-msg" : "student-msg"
+                }`}
+              >
                 <div className="message-header">
-                  <span className="sender">{m.senderName} ({m.role})</span>
-                  <span className="timestamp">{new Date(m.createdAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}</span>
+                  <span className="sender">
+                    {m.senderName} ({m.role})
+                  </span>
+                  <span className="timestamp">
+                    {new Date(m.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
                 </div>
                 <p className="message-text">{m.text}</p>
               </div>
             ))}
           </div>
         ))}
-        <div ref={chatEndRef}/>
+        <div ref={chatEndRef} />
       </main>
 
       <footer className="chat-footer">
@@ -149,10 +171,13 @@ const WebChat = () => {
           placeholder="✏️ Type your message..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&send()}
+          onKeyDown={(e) => e.key === "Enter" && send()}
         />
-        <button title="Send Message" onClick={send}><FaPaperPlane /></button>
+        <button title="Send Message" onClick={send}>
+          <FaPaperPlane />
+        </button>
       </footer>
+      <AlertPortal />
     </div>
   );
 };

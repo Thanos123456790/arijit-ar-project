@@ -12,12 +12,12 @@ import {
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 import "./UserProfile.css";
-
+import { useAlert } from "../../hooks/useAlert";
 const API = `${import.meta.env.VITE_API_URL}/users`;
 
 export default function UserProfile() {
   const navigate = useNavigate();
-
+  const { show, AlertPortal } = useAlert();
   /* -----------------------------------------------------------
      1.  Read current user ONCE (not on every render!)
          We keep it in a ref so that its identity never changes,
@@ -108,12 +108,13 @@ export default function UserProfile() {
 
       if (!res.ok) {
         const err = await res.json();
-        return alert(err.error || "Update failed");
+        return show({ message: err.message, type: "error" });
       }
 
       const updated = await res.json();
       sessionStorage.setItem("currentUser", JSON.stringify(updated));
-      alert("Profile saved!");
+      // alert("Profile saved!");
+      show({ message: "Profile saved successfully", type: "success" });
 
       navigate(
         updated.role === "teacher"
@@ -124,7 +125,8 @@ export default function UserProfile() {
       );
     } catch (err) {
       console.error(err);
-      alert("Server error");
+      // alert("Server error");
+      show({ message: "Server error while saving profile", type: "error"})
     }
   };
 
@@ -231,6 +233,7 @@ export default function UserProfile() {
           </Button>
         </Box>
       </Paper>
+      <AlertPortal />
     </Container>
   );
 }

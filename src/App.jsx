@@ -10,7 +10,7 @@ import {
 
 import Login from './pages/Login/Login.jsx';
 import CreateTest from './pages/CreateTest/CreateTest.jsx';
-import AssignTest from './pages/AssignTests/AssignTests.jsx';
+// import AssignTest from './pages/AssignTests/AssignTests.jsx';
 import WriteTest from './pages/TakeTest/TakeTest.jsx';
 import TestResults from './pages/TestResult/TestResult.jsx';
 import TeacherHomePage from './pages/TeacherHome/TeacherHome.jsx';
@@ -34,7 +34,7 @@ function App() {
             <Route path="/" element={<Login />} />
             <Route path="/create-test" element={<CreateTest />} />
             <Route path="/teacher-home" element={<TeacherHomePage />} />
-            <Route path="/assign-test" element={<AssignTest />} />
+            {/* <Route path="/assign-test" element={<AssignTest />} /> */}
             <Route path="/take-test" element={<WriteTest />} />
             <Route path="/test-results" element={<TestResults />} />
             <Route path="/student-home" element={<StudentHomePage />} />
