@@ -20,7 +20,7 @@ export default function StudentHomePage() {
   const currentUser = JSON.parse(sessionStorage.getItem("currentUser"));
 
   const [tests, setTests] = useState([]);
-  const [submitted, setSubmitted] = useState(new Set());
+  const [submissions, setSubmissions] = useState([]);
   const [commentBox, setCommentBox] = useState({ show: false, id: null });
   const [comment, setComment] = useState("");
 
@@ -32,24 +32,25 @@ export default function StudentHomePage() {
       .catch(console.error);
   }, []);
 
-  // ✅ Fetch student's submitted test IDs
+  // ✅ Fetch student's submissions (to check status as well)
   useEffect(() => {
     fetch(`${API}/submissions/student/${currentUser._id}`)
       .then((r) => r.json())
-      .then((arr) => setSubmitted(new Set(arr.map((o) => String(o.testId)))))
+      .then(setSubmissions)
       .catch(console.error);
   }, [currentUser._id]);
 
-  console.log(tests);
+  const submissionMap = new Map(); 
+  submissions.forEach((sub) => {
+    submissionMap.set(String(sub.testId), sub);
+  });
 
   const totalAssigned = tests.length;
-  const totalAttempted = submitted.size;
+  const totalAttempted = submissions.length;
 
-  // ✅ Navigation handlers
   const handleWriteTest = (id) => navigate(`/take-test?testId=${id}`);
   const handleViewResults = (id) => navigate(`/test-results?testId=${id}`);
 
-  // ✅ Comment handlers
   const openComment = (id) => {
     setCommentBox({ show: true, id });
     setComment("");
@@ -96,7 +97,13 @@ export default function StudentHomePage() {
         </div>
         <div className="card stat-card">
           <h3>Results Published</h3>
-          <p>0</p>
+          <p>
+            {
+              submissions.filter(
+                (s) => s.status?.toLowerCase() === "pass" || s.status?.toLowerCase() === "fail"
+              ).length
+            }
+          </p>
         </div>
       </section>
 
@@ -107,9 +114,13 @@ export default function StudentHomePage() {
             const now = new Date();
             const start = new Date(t.startDate);
             const expiry = new Date(t.expiryDate);
-            console.log("now"+now+"start"+start+"end"+expiry);
-            const isWithinDateRange = now >= start && now <= expiry;//true
-            console.log(isWithinDateRange);
+            const isWithinDateRange = now >= start && now <= expiry;
+
+            const submission = submissionMap.get(String(t._id));
+            const hasSubmitted = !!submission;
+            const resultAvailable =
+              submission?.status?.toLowerCase() === "pass" ||
+              submission?.status?.toLowerCase() === "fail";
 
             return (
               <div key={index} className="test-card">
@@ -123,21 +134,22 @@ export default function StudentHomePage() {
                 <p>Status: {isWithinDateRange ? "🟢 Live" : "🔴 Over"}</p>
 
                 <div className="card-actions">
-                  {!submitted.has(String(t._id)) && isWithinDateRange ? (
+                  {!hasSubmitted && isWithinDateRange ? (
                     <button
                       className="btn-info"
                       onClick={() => handleWriteTest(t._id)}
                     >
                       Write Test <FaEdit />
                     </button>
-                  ):
-                  (<button
-                    className="btn-secondary"
-                    onClick={() => handleViewResults(t._id)}
-                  >
-                    Results <FaEye />
-                  </button>)
-                  }
+                  ) : resultAvailable ? (
+                    <button
+                      className="btn-secondary"
+                      onClick={() => handleViewResults(t._id)}
+                    >
+                      Results <FaEye />
+                    </button>
+                  ) : null}
+
                   <button
                     className="btn-warning"
                     onClick={() => openComment(t._id)}
@@ -151,7 +163,6 @@ export default function StudentHomePage() {
         </div>
       </section>
 
-      {/* ✅ Fixed condition: commentBox.show not commentBox.visible */}
       {commentBox.show && (
         <div className="popup-overlay">
           <div className="popup-content">

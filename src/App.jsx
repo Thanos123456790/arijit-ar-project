@@ -23,6 +23,7 @@ import AdminHome from './pages/AdminHome/AdminHome.jsx';
 import ManualEvaluation from './pages/ManualEvaluation/ManualEvaluation.jsx';
 import ChatComponent from './pages/WebChat/WebChat.jsx';
 import AIEvaluation from './pages/AiEvaluation/AiEvaluation.jsx';
+import OtpVerify from './pages/Login/OtpVerify.jsx';
 function App() {
   return (
     <Router>
@@ -32,6 +33,7 @@ function App() {
         <Grid item xs={12}>
           <Routes>
             <Route path="/" element={<Login />} />
+            <Route path="/verify-otp" element={<OtpVerify />} />
             <Route path="/create-test" element={<CreateTest />} />
             <Route path="/teacher-home" element={<TeacherHomePage />} />
             {/* <Route path="/assign-test" element={<AssignTest />} /> */}

@@ -1,12 +1,10 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect, useRef } from "react";
 import { FaCamera, FaClock, FaFileAlt } from "react-icons/fa";
 import "./TakeTest.css";
 import { useLocation } from "react-router-dom";
 import { useAlert } from "../../hooks/useAlert";
 
-// ────────────────────────────────────────────────────────────────────────────
-// ENDPOINTS
-// ────────────────────────────────────────────────────────────────────────────
 const API = `${import.meta.env.VITE_API_URL}/tests`;
 const CHEATAPI = `${import.meta.env.VITE_API_URL}/cheating`;
 
@@ -16,13 +14,9 @@ export default function TakeTest() {
   const testId = new URLSearchParams(search).get("testId");
 
   const currentUser = JSON.parse(sessionStorage.getItem("currentUser"));
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // STATE & REFS
-  // ──────────────────────────────────────────────────────────────────────────
   const [test, setTest] = useState(null);
   const [answers, setAnswers] = useState(() => getPersisted().answers || {});
-  const [timer, setTimer] = useState(() => getPersisted().timer ?? 60); // will be overwritten once test loads
+  const [timer, setTimer] = useState(null); // set to null initially
   const [warnings, setWarnings] = useState(() => getPersisted().warnings || 0);
   const [cameraReady, setCamReady] = useState(false);
 
@@ -33,9 +27,6 @@ export default function TakeTest() {
   const streamRef = useRef(null);
   const fullWarned = useRef(false);
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // PERSISTENCE HELPERS
-  // ──────────────────────────────────────────────────────────────────────────
   function storageKey() {
     return `exam-${currentUser._id}-${testId}`;
   }
@@ -49,7 +40,7 @@ export default function TakeTest() {
     }
   }
 
-  function persist(state) {
+  function persist() {
     // debounced write to avoid flooding storage on every keystroke
     if (pendingSaveRef.current) return;
     pendingSaveRef.current = true;
@@ -66,46 +57,41 @@ export default function TakeTest() {
     });
   }
 
-  // Persist whenever answers, timer or warnings change
+
   useEffect(() => {
     persist();
   }, [answers, timer, warnings]);
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // FETCH TEST (once)
-  // ──────────────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    (async function fetchTest() {
-      const res = await fetch(`${API}/${testId}`);
-      const data = await res.json();
-      setTest(data);
 
-      // Initialise timer only the first time (respecting persisted state)
-      setTimer((old) => getPersisted().timer ?? parseInt(data.duration) * 60);
-    })();
-  }, [testId]);
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // COUNTDOWN
-  // ──────────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (timer <= 0) return;
+  (async function fetchTest() {
+    const res = await fetch(`${API}/${testId}`);
+    const data = await res.json();
+    setTest(data);
+
+    const persisted = getPersisted();
+    const durationSeconds = parseInt(data.duration) * 60;
+
+    // Only initialize timer from persisted or backend duration
+    setTimer(persisted.timer ?? durationSeconds);
+  })();
+}, [testId]);
+
+  useEffect(() => {
+    if (timer === null || timer <= 0) return;
     const id = setInterval(() => {
       setTimer((t) => t - 1);
     }, 1000);
     return () => clearInterval(id);
   }, [timer]);
 
-  // Auto‑submit when timer reaches 0 (guarded by hasSubmittedRef)
   useEffect(() => {
     if (timer === 0) {
       handleSubmit();
     }
   }, [timer]);
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // WEBCAM INITIALISATION
-  // ──────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: true })
@@ -120,7 +106,6 @@ export default function TakeTest() {
           handleViolation("camera-off");
       })
       .catch(() => {
-        // alert("Camera permission denied. Enable camera to start the exam.");
         show({
           message: "Camera permission denied. Enable camera to start the exam.",
           type: "error",
@@ -158,9 +143,7 @@ export default function TakeTest() {
     };
 
     const onBeforeUnload = (e) => {
-      // Don't trigger violation on submission
       if (!hasSubmittedRef.current) {
-        // Let the warning message be, but don’t trigger handleViolation
         e.preventDefault();
         e.returnValue = "Your exam is still in progress.";
       }
@@ -207,12 +190,6 @@ export default function TakeTest() {
   const handleViolation = (eventType) => {
     setWarnings((w) => {
       const next = w + 1;
-      // alert(
-      //   `Warning ${next}/3: ${eventType.replace(/-/g, " ")} detected.\n` +
-      //     (next === 3
-      //       ? "Next violation will terminate the exam."
-      //       : "Stay focused on the exam.")
-      // );
       show({
         message:
           `Warning ${next}/3: ${eventType.replace(/-/g, " ")} detected.\n` +
@@ -239,12 +216,12 @@ export default function TakeTest() {
         event: eventType,
       }),
     });
-    // alert("Exam terminated due to repeated violations.");
     show({
       message: "Exam terminated due to repeated violations",
       type: "error",
     });
     window.location.href = "/student-home";
+    sessionStorage.removeItem(storageKey());
   };
 
   const handleAnswerChange = (idx, value) => {
@@ -255,15 +232,16 @@ export default function TakeTest() {
     });
   };
 
-  const formatTime = (s) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(
-      2,
-      "0"
-    )}`;
+  const formatTime = (s) => {
+  if (s === null) return "--:--";
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  };
+
 
   const handleCancel = () => {
-    stopCamera();
     window.location.href = "/student-home";
+    stopCamera();
+    sessionStorage.removeItem(storageKey());
   };
 
   const handleSubmit = async () => {
@@ -271,12 +249,19 @@ export default function TakeTest() {
     hasSubmittedRef.current = true;
     stopCamera();
 
+    
     try {
       const payload = {
         studentId: currentUser._id,
+        studentRoll: currentUser.rollNumber,
+        studentEmail:currentUser.email,
         studentName: currentUser.name,
         answers: answersRef.current,
+        timeLeft:timer,
       };
+
+      // console.log("data" + JSON.stringify(payload));
+
       const res = await fetch(`${API}/${testId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -284,23 +269,18 @@ export default function TakeTest() {
       });
 
       if (res.ok) {
-        // alert("Test submitted and evaluated!");
         show({ message: "Test submitted and evaluated!", type: "success" });
-        sessionStorage.removeItem(storageKey()); // Clean up persisted state
-        window.location.href = "/student-home";
       } else {
         const err = await res.json();
-        // alert(err.msg || "Submission failed");
         show({ message: err.msg || "Submission failed", type: "error" });
       }
     } catch (e) {
       console.error(e);
-      // alert("Server error during submission");
       show({ message: "Server error during submission", type: "error" });
     } finally {
       stopCamera();
-      sessionStorage.removeItem(storageKey());
       window.location.href = "/student-home";
+      sessionStorage.removeItem(storageKey());
     }
   };
 

@@ -17,8 +17,8 @@ function Login() {
   const [rollNumber, setRollNumber] = useState("");
   const [branch, setBranch] = useState("");
   const [semester, setSemester] = useState("");
-  const [department, setDepartment] = useState("");
   const [employeeId, setEmployeeId] = useState("");
+  const [department, setDepartment] = useState("");
   const [designation, setDesignation] = useState("");
 
   const navigate = useNavigate();
@@ -28,13 +28,10 @@ function Login() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      // alert("Email and password are required.");
       show({ message: "Email and password are required.", type: "warning" });
       return;
     }
-
     if (!validateEmail(email)) {
-      // alert("Please enter a valid email.");
       show({ message: "Please enter a valid email.", type: "warning" });
       return;
     }
@@ -42,141 +39,86 @@ function Login() {
     try {
       const res = await fetch(`${API}/auth/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, role }),
       });
-
       const data = await res.json();
 
       if (!res.ok) {
-        // alert(data.message || "Login failed.");
         show({ message: data.message || "Login failed.", type: "error" });
         return;
       }
 
       sessionStorage.setItem("currentUser", JSON.stringify(data.user));
       sessionStorage.setItem("token", data.token);
-
-      if (data.user.role === "admin") {
-        navigate("/admin-home");
-      } else if (data.user.role === "student") {
-        navigate("/student-home");
-      } else if (data.user.role === "teacher") {
-        navigate("/teacher-home");
-      }
+      const dest =
+        data.user.role === "admin"
+          ? "/admin-home"
+          : data.user.role === "student"
+          ? "/student-home"
+          : "/teacher-home";
+      navigate(dest);
     } catch (err) {
       console.error(err);
-      // alert("An error occurred during login.");
       show({ message: "An error occurred during login.", type: "error" });
     }
   };
 
   const handleSignUp = async () => {
     if (!name || !email || !phone || !password || !confirmPassword) {
-      // alert("Please fill in all required fields.");
       show({ message: "Please fill in all required fields.", type: "warning" });
       return;
     }
-
     if (!validateEmail(email)) {
-      // alert("Please enter a valid email.");
       show({ message: "Please enter a valid email.", type: "warning" });
       return;
     }
-
     if (!validatePhone(phone)) {
-      // alert("Phone number must be 10 digits.");
       show({ message: "Phone number must be 10 digits.", type: "warning" });
       return;
     }
-
     if (password.length < 6) {
-      // alert("Password should be at least 6 characters.");
-      show({
-        message: "Password should be at least 6 characters.",
-        type: "warning",
-      });
+      show({ message: "Password should be at least 6 characters.", type: "warning" });
       return;
     }
-
     if (password !== confirmPassword) {
-      // alert("Passwords do not match.");
       show({ message: "Passwords do not match.", type: "warning" });
       return;
     }
 
-    let newUser = {
-      name,
-      email,
-      phone,
-      password,
-      role,
-    };
-
+    let newUser = { name, email, phone, password, role };
     if (role === "student") {
       if (!rollNumber || !branch || !semester) {
-        // alert("All student fields are required.");
         show({ message: "All student fields are required.", type: "warning" });
         return;
       }
-
-      newUser = {
-        ...newUser,
-        rollNumber,
-        branch,
-        semester,
-      };
+      newUser = { ...newUser, rollNumber, branch, semester };
     }
-
     if (role === "teacher") {
       if (!employeeId || !department || !designation) {
-        // alert("All teacher fields are required.");
-        show({ message: "All teacher fields are required. ", type: "warning" });
+        show({ message: "All teacher fields are required.", type: "warning" });
         return;
       }
-
-      newUser = {
-        ...newUser,
-        employeeId,
-        department,
-        designation,
-      };
+      newUser = { ...newUser, employeeId, department, designation };
     }
 
     try {
-      const res = await fetch(`${API}/auth/register`, {
+      const res = await fetch(`${API}/auth/register/otp`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newUser),
       });
-
       const data = await res.json();
       if (!res.ok) {
-        // alert(data.message || "Registration failed.");
-        show({
-          message: data.message || "Registration failed.",
-          type: "error",
-        });
+        show({ message: data.message || "Registration failed.", type: "error" });
         return;
       }
-      const existingUsers =
-        JSON.parse(sessionStorage.getItem("currentUser")) || [];
-      existingUsers.push(newUser);
-      sessionStorage.setItem("currentUser", JSON.stringify(existingUsers));
-      // alert("User registered successfully!");
-      show({ message: "User registered successfully!", type: "success" });
-      setIsSignUp(false);
+      // OTP sent, navigate to verification
+      sessionStorage.setItem("_pending_user", JSON.stringify(newUser));
+      navigate("/verify-otp");
     } catch (err) {
       console.error(err);
-      // alert("An error occurred during registration.");
-      show({
-        message: "An error occurred during registration.",
-        type: "error",
-      });
+      show({ message: "An error occurred.", type: "error" });
     }
   };
 

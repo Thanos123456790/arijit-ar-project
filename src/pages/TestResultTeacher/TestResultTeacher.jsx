@@ -21,6 +21,7 @@ export default function TeacherTestResults() {
   const [comments, setComments] = useState([]);
   const [cheatMap, setCheat] = useState({});
   const [noResults, setNoResults] = useState(false);
+  const [statusMap, setStatusMap] = useState({});
 
   // Fetch comments
   useEffect(() => {
@@ -76,7 +77,9 @@ export default function TeacherTestResults() {
 
   if (!subs) return <p className="loading">Loading…</p>;
 
-  const students = Array.isArray(subs) ? subs : subs.students;
+  let students = Array.isArray(subs) ? subs : subs.students;
+  students = [...students].sort((a, b) => b.timeLeft - a.timeLeft);
+
   const testName = subs.testName || "Test";
   const totalScore = subs.totalScore || students[0]?.totalScore || 0;
   const testDate = subs.date || students[0]?.submittedAt;
@@ -122,6 +125,55 @@ export default function TeacherTestResults() {
     });
     link.click();
   };
+
+  const handleStatusChange = (studentId, newStatus) => {
+    setStatusMap(prev => ({ ...prev, [studentId]: newStatus }));
+  };
+
+  const handleSubmit = async () => {
+  try {
+    // Extract original statuses from `subs`
+    const originalStatuses = {};
+    students.forEach((s) => {
+      originalStatuses[s.studentId] = s.status || "Waiting";
+    });
+
+    // Determine which students have updated statuses
+    const updatedStudentIds = Object.keys(statusMap).filter(
+      (id) => statusMap[id] !== originalStatuses[id]
+    );
+
+    // Extract emails of students whose status changed
+    const updatedEmails = students
+      .filter((s) => updatedStudentIds.includes(s.studentId))
+      .map((s) => s.studentEmail)
+      .filter(Boolean);
+
+    // Make the API call with updated emails
+    const res = await fetch(`${API}/results/update-statuses`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        testId,
+        statusMap,
+        emails: updatedEmails,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "Failed to update");
+
+    alert("Statuses updated and emails sent successfully.");
+  } catch (error) {
+    console.error(error);
+    alert("Error updating statuses or sending emails.");
+  }
+};
+
+
 
   return (
     <div className="teacher-results-container">
@@ -198,7 +250,7 @@ export default function TeacherTestResults() {
         <h4>Student-wise Results</h4>
         <table className="results-table">
           <thead>
-            <tr><th>Name</th><th>Score</th><th>%</th><th>Actions</th></tr>
+            <tr><th>Name</th><th>Roll No</th><th>Score</th><th>%</th><th>Actions</th><th>Status</th></tr>
           </thead>
           <tbody>
             {students.map((s, i) => (
@@ -212,15 +264,33 @@ export default function TeacherTestResults() {
                     />
                   )}
                 </td>
+                <td>{s.studentRoll}</td>
                 <td>{s.obtainedScore}/{totalScore}</td>
                 <td>{s.percentage}%</td>
                 <td>
                   <button className="view-btn" onClick={() => setSelected(s)}><FaEye /> View</button>
                 </td>
+                <td>
+                  <select
+                    value={statusMap[s.studentId] || "Waiting"}
+                    onChange={(e) => handleStatusChange(s.studentId, e.target.value)}
+                  >
+                    <option value="Pass">Pass</option>
+                    <option value="Fail">Fail</option>
+                    <option value="Waiting">Waiting</option>
+                  </select>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+        <button
+            className="submit-btn"
+            onClick={handleSubmit}
+            style={{ width: "150px" }}
+          >
+            Submit Result
+          </button>
       </section>
 
       {/* Feedback Section */}

@@ -403,7 +403,6 @@ const TeacherHomePage = () => {
           />
         </div>
       )}
-
       <Chatbot />
       <AlertPortal />
     </div>
