@@ -114,6 +114,7 @@ export default function StudentHomePage() {
             const now = new Date();
             const start = new Date(t.startDate);
             const expiry = new Date(t.expiryDate);
+            const isTestActive = now <= start && start < expiry;
             const isWithinDateRange = now >= start && now <= expiry;
 
             const submission = submissionMap.get(String(t._id));
@@ -131,8 +132,7 @@ export default function StudentHomePage() {
                   <FaClock className="icon yellow" /> Duration: {t.duration}
                 </p>
                 <p>Total Score: {t.totalScore}</p>
-                <p>Status: {isWithinDateRange ? "🟢 Live" : "🔴 Over"}</p>
-
+                <p>Status: { isTestActive ? "🟡 Not Active" : isWithinDateRange ? "🟢 Live" : "🔴 Over"}</p>
                 <div className="card-actions">
                   {!hasSubmitted && isWithinDateRange ? (
                     <button
