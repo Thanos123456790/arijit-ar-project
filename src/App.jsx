@@ -3,14 +3,10 @@ import {
   Routes,
   Route,
 } from 'react-router-dom';
-import {
-  Toolbar,
-  Grid,
-} from '@mui/material';
+import { Toolbar, Grid } from '@mui/material';
 
 import Login from './pages/Login/Login.jsx';
 import CreateTest from './pages/CreateTest/CreateTest.jsx';
-// import AssignTest from './pages/AssignTests/AssignTests.jsx';
 import WriteTest from './pages/TakeTest/TakeTest.jsx';
 import TestResults from './pages/TestResult/TestResult.jsx';
 import TeacherHomePage from './pages/TeacherHome/TeacherHome.jsx';
@@ -24,6 +20,9 @@ import ManualEvaluation from './pages/ManualEvaluation/ManualEvaluation.jsx';
 import ChatComponent from './pages/WebChat/WebChat.jsx';
 import AIEvaluation from './pages/AiEvaluation/AiEvaluation.jsx';
 import OtpVerify from './pages/Login/OtpVerify.jsx';
+
+import RoleBasedRoute from './ProtectRoutes/ProtectRoute.jsx'; // <- Import the guard
+
 function App() {
   return (
     <Router>
@@ -34,23 +33,104 @@ function App() {
           <Routes>
             <Route path="/" element={<Login />} />
             <Route path="/verify-otp" element={<OtpVerify />} />
-            <Route path="/create-test" element={<CreateTest />} />
-            <Route path="/teacher-home" element={<TeacherHomePage />} />
-            {/* <Route path="/assign-test" element={<AssignTest />} /> */}
-            <Route path="/take-test" element={<WriteTest />} />
-            <Route path="/test-results" element={<TestResults />} />
-            <Route path="/student-home" element={<StudentHomePage />} />
-                        <Route path="/update-test" element={<UpdateTest />} />
-           
-            <Route path="/test-results-teacher" element={<TeacherTestResults />} />
-            <Route path="/profile" element={<UserProfile />} />
-            <Route path="/admin-home" element={<AdminHome />} />
-                        <Route path="/manual-evaluation" element={<ManualEvaluation />} />
-                        <Route path="/ems-integrated-chat" element={<ChatComponent />} />
-                        <Route path="/ai-evaluation" element={<AIEvaluation />} />
 
-
-            
+            {/* ✅ Protected routes */}
+            <Route
+              path="/create-test"
+              element={
+                <RoleBasedRoute allowedRoles={['teacher']}>
+                  <CreateTest />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/teacher-home"
+              element={
+                <RoleBasedRoute allowedRoles={['teacher']}>
+                  <TeacherHomePage />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/take-test"
+              element={
+                <RoleBasedRoute allowedRoles={['student']}>
+                  <WriteTest />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/test-results"
+              element={
+                <RoleBasedRoute allowedRoles={['student']}>
+                  <TestResults />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/student-home"
+              element={
+                <RoleBasedRoute allowedRoles={['student']}>
+                  <StudentHomePage />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/update-test"
+              element={
+                <RoleBasedRoute allowedRoles={['teacher']}>
+                  <UpdateTest />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/test-results-teacher"
+              element={
+                <RoleBasedRoute allowedRoles={['teacher']}>
+                  <TeacherTestResults />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <RoleBasedRoute allowedRoles={['student', 'teacher', 'admin']}>
+                  <UserProfile />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/admin-home"
+              element={
+                <RoleBasedRoute allowedRoles={['admin']}>
+                  <AdminHome />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/manual-evaluation"
+              element={
+                <RoleBasedRoute allowedRoles={['teacher']}>
+                  <ManualEvaluation />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/ems-integrated-chat"
+              element={
+                <RoleBasedRoute allowedRoles={['student', 'teacher']}>
+                  <ChatComponent />
+                </RoleBasedRoute>
+              }
+            />
+            <Route
+              path="/ai-evaluation"
+              element={
+                <RoleBasedRoute allowedRoles={['teacher']}>
+                  <AIEvaluation />
+                </RoleBasedRoute>
+              }
+            />
           </Routes>
         </Grid>
       </Grid>

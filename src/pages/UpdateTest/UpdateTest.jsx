@@ -28,10 +28,10 @@ function UpdateTest({ initialTestData, onUpdate, onCancel }) {
       setTestDuration(initialTestData.testDuration || "");
       setTotalScore(initialTestData.totalScore || "");
       setStartDate(initialTestData.startDate?.slice(0, 10) || ""),
-      setExpiryDate(initialTestData.expiryDate?.slice(0, 10) || ""),
-      setStartTime(initialTestData.startDate?.slice(11, 16) || ""),
-      setExpiryTime(initialTestData.expiryDate?.slice(11, 16) || ""),
-      setQuestions(initialTestData.questions || []);
+        setExpiryDate(initialTestData.expiryDate?.slice(0, 10) || ""),
+        setStartTime(initialTestData.startDate?.slice(11, 16) || ""),
+        setExpiryTime(initialTestData.expiryDate?.slice(11, 16) || ""),
+        setQuestions(initialTestData.questions || []);
     }
   }, [initialTestData]);
 
@@ -74,7 +74,17 @@ function UpdateTest({ initialTestData, onUpdate, onCancel }) {
       });
       return;
     }
-    const updatedTest = { testName, testDuration, startDate, expiryDate, startTime,expiryTime, totalScore, questions };
+
+    const sumOfQuestionScores = questions.reduce((acc, q) => acc + (parseInt(q.score) || 0), 0);
+    if (parseInt(totalScore) !== sumOfQuestionScores) {
+      show({
+        message: `Total marks (${totalScore}) must match the sum of all question scores (${sumOfQuestionScores}).`,
+        type: "error",
+      });
+      return;
+    }
+    
+    const updatedTest = { testName, testDuration, startDate, expiryDate, startTime, expiryTime, totalScore, questions };
     onUpdate(updatedTest);
   };
 
@@ -256,6 +266,18 @@ function UpdateTest({ initialTestData, onUpdate, onCancel }) {
               }
             />
           )}
+
+          <div className="input-group">
+            <label>Score</label>
+            <input
+              type="number"
+              placeholder="Marks for this question"
+              value={q.score}
+              onChange={(e) =>
+                handleQuestionChange(index, "score", parseInt(e.target.value) || 0)
+              }
+            />
+          </div>
         </div>
       ))}
 

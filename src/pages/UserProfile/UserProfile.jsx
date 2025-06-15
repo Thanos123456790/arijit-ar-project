@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState, useRef } from "react";
 import {
   Avatar,
@@ -18,19 +19,10 @@ const API = `${import.meta.env.VITE_API_URL}/users`;
 export default function UserProfile() {
   const navigate = useNavigate();
   const { show, AlertPortal } = useAlert();
-  /* -----------------------------------------------------------
-     1.  Read current user ONCE (not on every render!)
-         We keep it in a ref so that its identity never changes,
-         preventing the useEffect dependency from firing forever.
-  ----------------------------------------------------------- */
   const currentUserRef = useRef(
     JSON.parse(sessionStorage.getItem("currentUser") || "{}")
   );
   const currentUser = currentUserRef.current;
-
-  /* -----------------------------------------------------------
-     2.  Local state for profile form + avatar preview
-  ----------------------------------------------------------- */
   const [preview, setPreview] = useState(null);
   const [profile, setProfile] = useState({
     fullName: "",
@@ -44,9 +36,7 @@ export default function UserProfile() {
     image: null,
   });
 
-  /* -----------------------------------------------------------
-     3.  Initialise form data exactly once on mount
-  ----------------------------------------------------------- */
+
   useEffect(() => {
     if (currentUser._id) {
       setProfile({
@@ -66,9 +56,7 @@ export default function UserProfile() {
     }
   }, []); //  <-- empty dependency array (runs once)
 
-  /* -----------------------------------------------------------
-     4.  Field handlers
-  ----------------------------------------------------------- */
+
   const onChange = (e) =>
     setProfile({ ...profile, [e.target.name]: e.target.value });
 
@@ -83,9 +71,7 @@ export default function UserProfile() {
     reader.readAsDataURL(file);
   };
 
-  /* -----------------------------------------------------------
-     5.  Save profile
-  ----------------------------------------------------------- */
+
   const save = async () => {
     const payload = {
       name: profile.fullName,
@@ -130,9 +116,7 @@ export default function UserProfile() {
     }
   };
 
-  /* -----------------------------------------------------------
-     6.  UI
-  ----------------------------------------------------------- */
+  
   return (
     <Container sx={{ width: { xs: "100%", md: "60%" } }}>
       <Paper elevation={4} sx={{ p: 4, borderRadius: 3 }}>

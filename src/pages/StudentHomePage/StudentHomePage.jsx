@@ -7,6 +7,9 @@ import {
   FaEdit,
   FaEye,
 } from "react-icons/fa";
+import { SiStatuspage } from "react-icons/si";
+
+import { SiSecurityscorecard } from "react-icons/si";
 import { useNavigate } from "react-router-dom";
 import Chatbot from "../Chatbot/Chatbot";
 import "../TeacherHome/TeacherHomePage.css";
@@ -28,9 +31,14 @@ export default function StudentHomePage() {
   useEffect(() => {
     fetch(`${API}/tests`)
       .then((r) => r.json())
-      .then(setTests)
+      .then((data) => {
+          const assignedTests = data.filter(test =>
+          test.assignedTo.includes(currentUser.email)
+        );
+        setTests(assignedTests);
+      })
       .catch(console.error);
-  }, []);
+  }, [currentUser.email]);
 
   // ✅ Fetch student's submissions (to check status as well)
   useEffect(() => {
@@ -131,8 +139,12 @@ export default function StudentHomePage() {
                 <p>
                   <FaClock className="icon yellow" /> Duration: {t.duration}
                 </p>
-                <p>Total Score: {t.totalScore}</p>
-                <p>Status: { isTestActive ? "🟡 Not Active" : isWithinDateRange ? "🟢 Live" : "🔴 Over"}</p>
+                <p>
+                  <SiSecurityscorecard className="icon green"/>
+                  Total Score: {t.totalScore}</p>
+                <p>
+                  <SiStatuspage className="icon green" />
+                  Status: { isTestActive ? "🟡 Not Active" : isWithinDateRange ? "🟢 Live" : "🔴 Over"}</p>
                 <div className="card-actions">
                   {!hasSubmitted && isWithinDateRange ? (
                     <button
