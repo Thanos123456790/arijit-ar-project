@@ -1,54 +1,46 @@
-'use client';
-
+/* eslint-disable no-unused-vars */
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import "./Login.css";
+import { useNavigate } from "react-router-dom";
+import { useAlert } from "../../hooks/useAlert";
 
-const API = process.env.NEXT_PUBLIC_API_URL;
+const API = `${import.meta.env.VITE_API_URL}`;
 
-export default function LoginForm() {
-  const router = useRouter();
+function Login() {
+  const { show, AlertPortal } = useAlert();
   const [isSignUp, setIsSignUp] = useState(false);
   const [role, setRole] = useState("student");
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
   const [rollNumber, setRollNumber] = useState("");
   const [branch, setBranch] = useState("");
   const [semester, setSemester] = useState("");
-
   const [employeeId, setEmployeeId] = useState("");
   const [department, setDepartment] = useState("");
   const [designation, setDesignation] = useState("");
-
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetOtp, setResetOtp] = useState("");
-  const [step, setStep] = useState("email");
+  const [step, setStep] = useState("email"); // email | otp | password
   const [newPassword, setNewPassword] = useState("");
 
+
+  const navigate = useNavigate();
+
   const validateEmail = (email) => /\S+@\S+\.\S+/.test(email);
-  const validatePhone = (phone) => phone.length === 10 && !isNaN(+phone);
+  const validatePhone = (phone) => phone.length === 10 && !isNaN(phone);
 
   const handleLogin = async () => {
     if (!email || !password) {
-      return toast.warning("Email and password are required.");
+      show({ message: "Email and password are required.", type: "warning" });
+      return;
     }
     if (!validateEmail(email)) {
-      return toast.warning("Please enter a valid email.");
+      show({ message: "Please enter a valid email.", type: "warning" });
+      return;
     }
 
     try {
@@ -57,58 +49,64 @@ export default function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, role }),
       });
-
       const data = await res.json();
 
       if (!res.ok) {
-        return toast.error(data.message || "Login failed.");
+        show({ message: data.message || "Login failed.", type: "error" });
+        return;
       }
 
-      localStorage.setItem("currentUser", data.token); // you may encrypt if needed
-      const destination =
+      sessionStorage.setItem("currentUser", JSON.stringify(data.user));
+      sessionStorage.setItem("token", data.token);
+      const dest =
         data.user.role === "admin"
-          ? "/admin/dashboard"
+          ? "/admin-home"
           : data.user.role === "student"
-            ? "/student/dashboard"
-            : "/teacher/dashboard";
-
-      router.replace(destination);
+            ? "/student-home"
+            : "/teacher-home";
+      navigate(dest);
     } catch (err) {
-      toast.error("An error occurred during login.");
+      console.error(err);
+      show({ message: "An error occurred during login.", type: "error" });
     }
   };
 
   const handleSignUp = async () => {
     if (!name || !email || !phone || !password || !confirmPassword) {
-      return toast.warning("Please fill in all required fields.");
+      show({ message: "Please fill in all required fields.", type: "warning" });
+      return;
     }
     if (!validateEmail(email)) {
-      return toast.warning("Please enter a valid email.");
+      show({ message: "Please enter a valid email.", type: "warning" });
+      return;
     }
     if (!validatePhone(phone)) {
-      return toast.warning("Phone number must be 10 digits.");
+      show({ message: "Phone number must be 10 digits.", type: "warning" });
+      return;
     }
     if (password.length < 6) {
-      return toast.warning("Password should be at least 6 characters.");
+      show({ message: "Password should be at least 6 characters.", type: "warning" });
+      return;
     }
     if (password !== confirmPassword) {
-      return toast.warning("Passwords do not match.");
+      show({ message: "Passwords do not match.", type: "warning" });
+      return;
     }
 
     let newUser = { name, email, phone, password, role };
-
     if (role === "student") {
       if (!rollNumber || !branch || !semester) {
-        return toast.warning("All student fields are required.");
+        show({ message: "All student fields are required.", type: "warning" });
+        return;
       }
-      Object.assign(newUser, { rollNumber, branch, semester });
+      newUser = { ...newUser, rollNumber, branch, semester };
     }
-
     if (role === "teacher") {
       if (!employeeId || !department || !designation) {
-        return toast.warning("All teacher fields are required.");
+        show({ message: "All teacher fields are required.", type: "warning" });
+        return;
       }
-      Object.assign(newUser, { employeeId, department, designation });
+      newUser = { ...newUser, employeeId, department, designation };
     }
 
     try {
@@ -117,38 +115,40 @@ export default function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newUser),
       });
-
       const data = await res.json();
       if (!res.ok) {
-        return toast.error(data.message || "Registration failed.");
+        show({ message: data.message || "Registration failed.", type: "error" });
+        return;
       }
-
+      // OTP sent, navigate to verification
       sessionStorage.setItem("_pending_user", JSON.stringify(newUser));
-      router.push("/verify-otp");
+      navigate("/verify-otp");
     } catch (err) {
-      toast.error("An error occurred.");
+      console.error(err);
+      show({ message: "An error occurred.", type: "error" });
     }
   };
 
   const handleSendOtp = async () => {
     if (!validateEmail(resetEmail)) {
-      return toast.warning("Enter a valid email.");
+      show({ message: "Enter a valid email.", type: "warning" });
+      return;
     }
-
     try {
       const res = await fetch(`${API}/reset/request-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: resetEmail }),
       });
-
       const data = await res.json();
-      if (!res.ok) return toast.error(data.message || "Failed to send OTP.");
-
-      toast.success("OTP sent to your email.");
+      if (!res.ok) {
+        show({ message: data.message || "Failed to send OTP.", type: "error" });
+        return;
+      }
+      show({ message: "OTP sent to your email.", type: "success" });
       setStep("otp");
-    } catch {
-      toast.error("Something went wrong.");
+    } catch (err) {
+      show({ message: "Something went wrong.", type: "error" });
     }
   };
 
@@ -159,95 +159,356 @@ export default function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: resetEmail, otp: resetOtp }),
       });
-
       const data = await res.json();
-      if (!res.ok) return toast.error(data.message || "Invalid OTP.");
-
-      toast.success("OTP verified. Set new password.");
+      if (!res.ok) {
+        show({ message: data.message || "Invalid OTP.", type: "error" });
+        return;
+      }
+      show({ message: "OTP verified. Set new password.", type: "success" });
       setStep("password");
-    } catch {
-      toast.error("Verification failed.");
+    } catch (err) {
+      show({ message: "Verification failed.", type: "error" });
     }
   };
 
   const handleResetPassword = async () => {
     if (newPassword.length < 6) {
-      return toast.warning("Password must be at least 6 characters.");
+      show({ message: "Password must be at least 6 characters.", type: "warning" });
+      return;
     }
-
     try {
       const res = await fetch(`${API}/reset/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: resetEmail, password: newPassword }),
       });
-
       const data = await res.json();
-      if (!res.ok) return toast.error(data.message || "Failed to reset password.");
-
-      toast.success("Password reset successful.");
+      if (!res.ok) {
+        show({ message: data.message || "Failed to reset password.", type: "error" });
+        return;
+      }
+      show({ message: "Password reset successful. Please login.", type: "success" });
       setShowResetModal(false);
       setStep("email");
       setResetEmail("");
       setResetOtp("");
       setNewPassword("");
-    } catch {
-      toast.error("Error resetting password.");
+    } catch (err) {
+      show({ message: "Error resetting password.", type: "error" });
     }
   };
+
 
   return (
     <div className="login-container">
       <div className="form-box">
         {!isSignUp && (
           <div className="watermark">
-            <p>Secure Exam Handling & Encrypted Storage System</p>
+            <p style={{ color: "black" }}>
+              Secure Exam Handling <br /> & Encrtpted Storage System
+            </p>
             <p>Asansol Engineering College</p>
             <p>Computer Science and Engineering</p>
           </div>
         )}
 
-        <h3>{isSignUp ? "Sign Up" : "Login"}</h3>
+        {!isSignUp && <h3>Login</h3>}
 
-        <div className="role-selection mb-4">
-          {["student", "teacher", !isSignUp && "admin"]
-            .filter(Boolean)
-            .map((r) => (
-              <label key={r}>
-                <input
-                  type="radio"
-                  name="role"
-                  value={r}
-                  checked={role === r}
-                  onChange={() => setRole(r)}
-                />
-                {r.charAt(0).toUpperCase() + r.slice(1)}
-              </label>
-            ))}
+        <div className="role-selection">
+          <label>
+            <input
+              type="radio"
+              value="student"/* eslint-disable no-unused-vars */
+import { useState } from "react";
+import "./Login.css";
+import { useNavigate } from "react-router-dom";
+import { useAlert } from "../../hooks/useAlert";
+
+const API = `${import.meta.env.VITE_API_URL}`;
+
+function Login() {
+  const { show, AlertPortal } = useAlert();
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [role, setRole] = useState("student");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [rollNumber, setRollNumber] = useState("");
+  const [branch, setBranch] = useState("");
+  const [semester, setSemester] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
+  const [department, setDepartment] = useState("");
+  const [designation, setDesignation] = useState("");
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetOtp, setResetOtp] = useState("");
+  const [step, setStep] = useState("email"); // email | otp | password
+  const [newPassword, setNewPassword] = useState("");
+
+
+  const navigate = useNavigate();
+
+  const validateEmail = (email) => /\S+@\S+\.\S+/.test(email);
+  const validatePhone = (phone) => phone.length === 10 && !isNaN(phone);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      show({ message: "Email and password are required.", type: "warning" });
+      return;
+    }
+    if (!validateEmail(email)) {
+      show({ message: "Please enter a valid email.", type: "warning" });
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, role }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        show({ message: data.message || "Login failed.", type: "error" });
+        return;
+      }
+
+      sessionStorage.setItem("currentUser", JSON.stringify(data.user));
+      sessionStorage.setItem("token", data.token);
+      const dest =
+        data.user.role === "admin"
+          ? "/admin-home"
+          : data.user.role === "student"
+            ? "/student-home"
+            : "/teacher-home";
+      navigate(dest);
+    } catch (err) {
+      console.error(err);
+      show({ message: "An error occurred during login.", type: "error" });
+    }
+  };
+
+  const handleSignUp = async () => {
+    if (!name || !email || !phone || !password || !confirmPassword) {
+      show({ message: "Please fill in all required fields.", type: "warning" });
+      return;
+    }
+    if (!validateEmail(email)) {
+      show({ message: "Please enter a valid email.", type: "warning" });
+      return;
+    }
+    if (!validatePhone(phone)) {
+      show({ message: "Phone number must be 10 digits.", type: "warning" });
+      return;
+    }
+    if (password.length < 6) {
+      show({ message: "Password should be at least 6 characters.", type: "warning" });
+      return;
+    }
+    if (password !== confirmPassword) {
+      show({ message: "Passwords do not match.", type: "warning" });
+      return;
+    }
+
+    let newUser = { name, email, phone, password, role };
+    if (role === "student") {
+      if (!rollNumber || !branch || !semester) {
+        show({ message: "All student fields are required.", type: "warning" });
+        return;
+      }
+      newUser = { ...newUser, rollNumber, branch, semester };
+    }
+    if (role === "teacher") {
+      if (!employeeId || !department || !designation) {
+        show({ message: "All teacher fields are required.", type: "warning" });
+        return;
+      }
+      newUser = { ...newUser, employeeId, department, designation };
+    }
+
+    try {
+      const res = await fetch(`${API}/auth/register/otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUser),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        show({ message: data.message || "Registration failed.", type: "error" });
+        return;
+      }
+      // OTP sent, navigate to verification
+      sessionStorage.setItem("_pending_user", JSON.stringify(newUser));
+      navigate("/verify-otp");
+    } catch (err) {
+      console.error(err);
+      show({ message: "An error occurred.", type: "error" });
+    }
+  };
+
+  const handleSendOtp = async () => {
+    if (!validateEmail(resetEmail)) {
+      show({ message: "Enter a valid email.", type: "warning" });
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/reset/request-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        show({ message: data.message || "Failed to send OTP.", type: "error" });
+        return;
+      }
+      show({ message: "OTP sent to your email.", type: "success" });
+      setStep("otp");
+    } catch (err) {
+      show({ message: "Something went wrong.", type: "error" });
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    try {
+      const res = await fetch(`${API}/reset/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail, otp: resetOtp }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        show({ message: data.message || "Invalid OTP.", type: "error" });
+        return;
+      }
+      show({ message: "OTP verified. Set new password.", type: "success" });
+      setStep("password");
+    } catch (err) {
+      show({ message: "Verification failed.", type: "error" });
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (newPassword.length < 6) {
+      show({ message: "Password must be at least 6 characters.", type: "warning" });
+      return;
+    }
+    try {
+      const res = await fetch(`${API}/reset/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail, password: newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        show({ message: data.message || "Failed to reset password.", type: "error" });
+        return;
+      }
+      show({ message: "Password reset successful. Please login.", type: "success" });
+      setShowResetModal(false);
+      setStep("email");
+      setResetEmail("");
+      setResetOtp("");
+      setNewPassword("");
+    } catch (err) {
+      show({ message: "Error resetting password.", type: "error" });
+    }
+  };
+
+
+  return (
+    <div className="login-container">
+      <div className="form-box">
+        {!isSignUp && (
+          <div className="watermark">
+            <p style={{ color: "black" }}>
+              Secure Exam Handling <br /> & Encrtpted Storage System
+            </p>
+            <p>Asansol Engineering College</p>
+            <p>Computer Science and Engineering</p>
+          </div>
+        )}
+
+        {!isSignUp && <h3>Login</h3>}
+
+        <div className="role-selection">
+          <label>
+            <input
+              type="radio"
+              value="student"
+              checked={role === "student"}
+              onChange={() => setRole("student")}
+            />
+            Student
+          </label>
+          <label>
+            <input
+              type="radio"
+              value="teacher"
+              checked={role === "teacher"}
+              onChange={() => setRole("teacher")}
+            />
+            Teacher
+          </label>
+          {!isSignUp && (
+            <label>
+              <input
+                type="radio"
+                value="admin"
+                checked={role === "admin"}
+                onChange={() => setRole("admin")}
+              />
+              Admin
+            </label>
+          )}
         </div>
 
         {isSignUp && role !== "admin" && (
           <>
-            <Input placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} />
-            <Input placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <input
+              type="text"
+              placeholder="Phone Number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
           </>
         )}
 
-        <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
         {!isSignUp && (
           <p
-            className="text-sm text-blue-600 cursor-pointer mt-1"
+            className="forgot-password-link"
             onClick={() => setShowResetModal(true)}
+            style={{ cursor: "pointer", color: "#007bff", fontSize: "0.9rem" }}
           >
             Forgot Password?
           </p>
         )}
 
+
         {isSignUp && role !== "admin" && (
           <>
-            <Input
+            <input
               type="password"
               placeholder="Confirm Password"
               value={confirmPassword}
@@ -255,62 +516,119 @@ export default function LoginForm() {
             />
 
             {role === "student" && (
-              <>
-                <Input placeholder="Roll Number" value={rollNumber} onChange={(e) => setRollNumber(e.target.value)} />
-                <Input placeholder="Branch" value={branch} onChange={(e) => setBranch(e.target.value)} />
-                <Input placeholder="Semester" value={semester} onChange={(e) => setSemester(e.target.value)} />
-              </>
+              <div className="form-row">
+                <input
+                  type="text"
+                  placeholder="Roll Number"
+                  value={rollNumber}
+                  onChange={(e) => setRollNumber(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Branch"
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Semester"
+                  value={semester}
+                  onChange={(e) => setSemester(e.target.value)}
+                />
+              </div>
             )}
 
             {role === "teacher" && (
-              <>
-                <Input placeholder="Employee ID" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} />
-                <Input placeholder="Department" value={department} onChange={(e) => setDepartment(e.target.value)} />
-                <Input placeholder="Designation" value={designation} onChange={(e) => setDesignation(e.target.value)} />
-              </>
+              <div className="form-row">
+                <input
+                  type="text"
+                  placeholder="Employee ID"
+                  value={employeeId}
+                  onChange={(e) => setEmployeeId(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Department"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Designation"
+                  value={designation}
+                  onChange={(e) => setDesignation(e.target.value)}
+                />
+              </div>
             )}
           </>
         )}
 
-        <Button className="mt-4 w-full" onClick={isSignUp ? handleSignUp : handleLogin}>
+        <button onClick={isSignUp ? handleSignUp : handleLogin}>
           {isSignUp ? "Sign Up" : "Login"}
-        </Button>
+        </button>
 
         {role !== "admin" && (
-          <p className="text-sm text-center mt-2">
+          <p className="toggle-text">
             {isSignUp ? "Already have an account?" : "Don't have an account?"}
-            <span className="text-blue-600 cursor-pointer ml-1" onClick={() => setIsSignUp(!isSignUp)}>
-              {isSignUp ? "Login" : "Sign Up"}
+            <span onClick={() => setIsSignUp(!isSignUp)}>
+              {isSignUp ? " Login" : " Sign Up"}
             </span>
           </p>
         )}
       </div>
+      {showResetModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Reset Password</h3>
+            {step === "email" && (
+              <>
+                <input
+                  type="email"
+                  placeholder="Enter your registered email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                />
+                <button onClick={handleSendOtp}>Send OTP</button>
+              </>
+            )}
+            {step === "otp" && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Enter OTP"
+                  value={resetOtp}
+                  onChange={(e) => setResetOtp(e.target.value)}
+                />
+                <button onClick={handleVerifyOtp}>Verify OTP</button>
+              </>
+            )}
+            {step === "password" && (
+              <>
+                <input
+                  type="password"
+                  placeholder="Enter New Password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+                <button onClick={handleResetPassword}>Reset Password</button>
+              </>
+            )}
+            <p
+              onClick={() => {
+                setShowResetModal(false);
+                setStep("email");
+              }}
+              style={{ cursor: "pointer", color: "red", marginTop: "10px" }}
+            >
+              Cancel
+            </p>
+          </div>
+        </div>
+      )}
 
-      <Dialog open={showResetModal} onOpenChange={setShowResetModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
-          </DialogHeader>
-          {step === "email" && (
-            <>
-              <Input placeholder="Enter your registered email" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} />
-              <Button onClick={handleSendOtp}>Send OTP</Button>
-            </>
-          )}
-          {step === "otp" && (
-            <>
-              <Input placeholder="Enter OTP" value={resetOtp} onChange={(e) => setResetOtp(e.target.value)} />
-              <Button onClick={handleVerifyOtp}>Verify OTP</Button>
-            </>
-          )}
-          {step === "password" && (
-            <>
-              <Input placeholder="Enter New Password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-              <Button onClick={handleResetPassword}>Reset Password</Button>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <AlertPortal />
     </div>
   );
 }
+
+export default Login;
